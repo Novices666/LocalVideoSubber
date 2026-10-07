@@ -61,6 +61,41 @@ def _wav_duration(path: Path) -> float:
         return 0.0
 
 
+def _setup_cuda_dll_path() -> None:
+    """让 cuBLAS 可被 ctranslate2 加载。
+
+    ctranslate2 的 C++ 层（ctranslate2.dll）在自身目录搜索依赖 DLL（它自带
+    cudnn64_9.dll 但没有 cublas）。而 cuBLAS 在 nvidia 包的 bin 目录、不在系统
+    PATH，导致长音频特征提取时报 "cublas64_12.dll is not found or cannot be
+    loaded"。这里把 nvidia 包的 DLL 复制到 ctranslate2 目录（幂等），并加入
+    DLL 搜索目录作为双保险。
+    """
+    try:
+        import glob
+        import os
+        import shutil
+        import sysconfig
+
+        import ctranslate2
+
+        site = sysconfig.get_paths()["purelib"]
+        ct2_dir = os.path.dirname(ctranslate2.__file__)
+        for dll_dir in glob.glob(os.path.join(site, "nvidia", "*", "bin")):
+            try:
+                os.add_dll_directory(dll_dir)
+            except (OSError, AttributeError):
+                pass
+            for dll in glob.glob(os.path.join(dll_dir, "*.dll")):
+                dst = os.path.join(ct2_dir, os.path.basename(dll))
+                if not os.path.exists(dst):
+                    try:
+                        shutil.copy2(dll, dst)
+                    except OSError:
+                        pass
+    except Exception:  # noqa: BLE001
+        pass
+
+
 class FasterWhisperEngine(AsrEngine):
     name = "faster-whisper"
 
@@ -87,6 +122,8 @@ class FasterWhisperEngine(AsrEngine):
         # 取消检查：模型加载前
         if self.options.cancel_token is not None and self.options.cancel_token.is_set():
             raise TranscriptionCancelled()
+        # 关键：先加 nvidia DLL 目录，否则长音频特征提取会报 cublas 缺失
+        _setup_cuda_dll_path()
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:  # pragma: no cover

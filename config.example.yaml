@@ -140,5 +140,5 @@ jobs:
   # 是否保留中间产物（抽出的音频、分段字幕）
   keep_intermediate: true
   # 长视频自动分段阈值（秒），超过则切段逐段处理
-  segment_threshold: 1800
+  segment_threshold: 600
 

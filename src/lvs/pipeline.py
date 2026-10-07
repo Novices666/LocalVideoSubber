@@ -154,7 +154,7 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
         engine = create_engine(cfg, engine_name, asr_opts, model_path)
         ctx.log(f"引擎: {engine.describe()}")
 
-        threshold = float(cfg.get("jobs.segment_threshold", 1800) or 0)
+        threshold = float(cfg.get("jobs.segment_threshold", 600) or 0)
         chunks = plan_chunks(info.duration, threshold)
 
         # 长视频分段时，每段 VAD 检测（onnxruntime CPU 单线程）要 40-50 秒，
