@@ -227,6 +227,7 @@ class LlmClient:
             raise LlmError(f"HTTP {r.status_code}: {msg}")
 
         parts: list[str] = []
+        saw_reasoning = False
         try:
             for raw in _iter_sse_lines(r):
                 if cancel is not None and cancel.is_set():
@@ -247,9 +248,12 @@ class LlmClient:
                 if not choices:
                     continue
                 delta = choices[0].get("delta") or {}
-                piece = delta.get("content") or delta.get("reasoning_content") or ""
+                # 只取最终答案 content，忽略 reasoning_content（思考）
+                piece = delta.get("content") or ""
                 if piece:
                     parts.append(piece)
+                if delta.get("reasoning_content"):
+                    saw_reasoning = True
         except requests.Timeout as exc:
             raise _TimeoutErr(f"请求超时({self.config.timeout}s)") from exc
         except requests.RequestException as exc:
@@ -258,7 +262,14 @@ class LlmClient:
             # 关闭连接：取消时这里断开 TCP，服务端（llama.cpp/Ollama）会停止生成
             r.close()
 
-        return "".join(parts)
+        content = "".join(parts)
+        if not content and saw_reasoning:
+            raise LlmError(
+                "模型只输出了思考内容、没有最终答案——思考模式未关闭，"
+                "思考耗尽了全部输出额度。请把该模型的 Prompt Template 改为 "
+                "ChatML（或换用非 reasoning 模型）后重试。"
+            )
+        return content
 
     def _do_post(self, url: str, headers: dict[str, str], body: dict[str, Any]):
         try:
