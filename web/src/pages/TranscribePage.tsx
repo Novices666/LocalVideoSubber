@@ -369,7 +369,7 @@ export function TranscribePage() {
 
       {/* 右栏：进度 + 字幕 */}
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">
-        <Card className="h-52 shrink-0">
+        <Card className="h-64 shrink-0">
           <CardHeader className="pb-2">
             <CardTitle>进度</CardTitle>
           </CardHeader>

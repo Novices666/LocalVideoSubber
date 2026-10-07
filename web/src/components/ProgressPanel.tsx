@@ -1,6 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { ProgressEvent } from "@/lib/api";
 
 const STATUS_VARIANT: Record<string, "default" | "secondary" | "success" | "destructive" | "warning"> = {
@@ -21,12 +22,22 @@ export function ProgressPanel({
   done: boolean;
 }) {
   const logRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const [showLog, setShowLog] = useState(false);
+
+  const logs = progress?.logs ?? [];
 
   useEffect(() => {
     if (logRef.current) {
       logRef.current.scrollTop = logRef.current.scrollHeight;
     }
-  }, [progress?.logs?.length]);
+  }, [logs.length]);
+
+  useEffect(() => {
+    if (showLog && dialogRef.current) {
+      dialogRef.current.scrollTop = dialogRef.current.scrollHeight;
+    }
+  }, [showLog, logs.length]);
 
   if (!progress && !error && !done) {
     return (
@@ -37,7 +48,6 @@ export function ProgressPanel({
   }
 
   const pct = Math.round((progress?.progress ?? 0) * 100);
-  const logs = progress?.logs ?? [];
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -72,15 +82,54 @@ export function ProgressPanel({
       )}
 
       {logs.length > 0 && (
+        <>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">
+              日志（{logs.length} 条）
+            </span>
+            <Button size="sm" variant="ghost" onClick={() => setShowLog(true)}>
+              展开查看
+            </Button>
+          </div>
+          <div
+            ref={logRef}
+            className="scroll-area min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-xs leading-relaxed"
+          >
+            {logs.map((line, i) => (
+              <div key={i} className="whitespace-pre-wrap break-anywhere">
+                {line}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showLog && (
         <div
-          ref={logRef}
-          className="scroll-area flex-1 overflow-y-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-xs leading-relaxed"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6"
+          onClick={() => setShowLog(false)}
         >
-          {logs.map((line, i) => (
-            <div key={i} className="whitespace-pre-wrap break-anywhere">
-              {line}
+          <div
+            className="flex h-[82vh] w-[min(900px,92vw)] flex-col rounded-lg border border-border bg-background p-4 shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="font-medium">任务日志</span>
+              <Button size="sm" variant="outline" onClick={() => setShowLog(false)}>
+                关闭
+              </Button>
             </div>
-          ))}
+            <div
+              ref={dialogRef}
+              className="scroll-area min-h-0 flex-1 overflow-y-auto rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed"
+            >
+              {logs.map((line, i) => (
+                <div key={i} className="whitespace-pre-wrap break-anywhere">
+                  {line}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

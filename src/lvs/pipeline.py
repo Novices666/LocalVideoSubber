@@ -349,10 +349,17 @@ def _run_translate_impl(job: Job, ctx: JobContext) -> dict[str, Any]:
 
     ctx.stage("批量翻译", 0.02)
     translator = SubtitleTranslator(client, top, llm_cfg)
+
+    def _log_progress(p: float, msg: str = "") -> None:
+        """进度回调：更新进度条的同时写入日志（每批完成可见）。"""
+        ctx.progress(0.02 + 0.93 * max(0.0, min(1.0, p)), msg)
+        if msg:
+            ctx.log(msg)
+
     try:
         res = translator.translate_cues(
             cues,
-            progress=ctx.scaled(0.02, 0.95),
+            progress=_log_progress,
             cancel=ctx.cancel,
         )
     except Cancelled:
