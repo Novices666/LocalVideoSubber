@@ -227,7 +227,9 @@ class SubtitleTranslator:
             raise TranslateError("已取消")
 
         try:
-            reply = self.client.chat(messages, temperature=self._batch_temperature(0))
+            reply = self.client.chat(
+                messages, temperature=self._batch_temperature(0), cancel=cancel
+            )
         except LlmConnectionError:
             raise
         except LlmError as exc:
@@ -252,7 +254,9 @@ class SubtitleTranslator:
             if attempt == 1:
                 try:
                     reply2 = self.client.chat(
-                        messages, temperature=self._batch_temperature(attempt)
+                        messages,
+                        temperature=self._batch_temperature(attempt),
+                        cancel=cancel,
                     )
                     filled = self._apply(batch, self._parse_mapping(reply2))
                     if filled >= len(batch):
@@ -269,7 +273,9 @@ class SubtitleTranslator:
                         {"role": "user", "content": build_retry_prompt(items, missing)}
                     ]
                     reply3 = self.client.chat(
-                        msg, temperature=self._batch_temperature(attempt)
+                        msg,
+                        temperature=self._batch_temperature(attempt),
+                        cancel=cancel,
                     )
                     filled = self._apply(batch, self._parse_mapping(reply3), only=set(missing))
                     if not [c for c in batch if not c.translation]:
@@ -288,7 +294,11 @@ class SubtitleTranslator:
                             {"role": "system", "content": system},
                             {"role": "user", "content": build_user_prompt(sub, context)},
                         ]
-                        r = self.client.chat(m, temperature=self._batch_temperature(attempt))
+                        r = self.client.chat(
+                            m,
+                            temperature=self._batch_temperature(attempt),
+                            cancel=cancel,
+                        )
                         self._apply(batch, self._parse_mapping(r), only={c.index for c in half})
                     except LlmError as exc:
                         log.warning("拆半重试失败: %s", exc)
@@ -343,6 +353,7 @@ class SubtitleTranslator:
                     ],
                     temperature=0.2,
                     max_tokens=512,
+                    cancel=cancel,
                 )
                 c.translation = _clean_reply(reply)
             except (LlmError, LlmConnectionError) as exc:

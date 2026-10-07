@@ -83,14 +83,26 @@ class Handler(BaseHTTPRequestHandler):
         else:
             content = json.dumps(result, ensure_ascii=False)
 
-        body = json.dumps(
-            {"choices": [{"message": {"role": "assistant", "content": content}}]}
-        ).encode()
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        if req.get("stream"):
+            # SSE 流式响应（模拟真实 llama.cpp/Ollama）
+            payload = json.dumps(
+                {"choices": [{"delta": {"content": content}}]}, ensure_ascii=False
+            )
+            body = f"data: {payload}\n\ndata: [DONE]\n\n".encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        else:
+            body = json.dumps(
+                {"choices": [{"message": {"role": "assistant", "content": content}}]}
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
 
 
 # --------------------------------------------------------------------------

@@ -75,7 +75,7 @@ def test_llm_disable_thinking_adds_chat_template_flag() -> None:
     client = LlmClient(LlmConfig(model="qwen/qwen3.5-9b", disable_thinking=True))
     captured: dict = {}
 
-    def fake_post(body):
+    def fake_post(body, cancel=None):
         captured.update(body)
         return "{}"
 

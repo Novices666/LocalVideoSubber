@@ -357,6 +357,11 @@ def _run_translate_impl(job: Job, ctx: JobContext) -> dict[str, Any]:
         )
     except Cancelled:
         raise TaskCancelled()
+    except Exception as exc:  # noqa: BLE001
+        # llm_client 流式取消（_Cancelled）或用户已点取消 -> 统一转取消
+        if type(exc).__name__ == "_Cancelled" or ctx.cancel.is_set():
+            raise TaskCancelled()
+        raise
     finally:
         client.close()
 
