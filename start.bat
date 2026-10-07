@@ -1,62 +1,61 @@
 @echo off
-chcp 65001 >nul
 setlocal EnableDelayedExpansion
 title LocalVideoSubber
 
 cd /d "%~dp0"
 
 echo ==================================================================
-echo   LocalVideoSubber - 本地视频字幕工作台
+echo   LocalVideoSubber - Local Video Subtitle Workbench
 echo ==================================================================
 echo.
 
-REM ---------- 1. 定位 Python ----------
+REM ---------- 1. Locate Python ----------
 set PY=
 where py >nul 2>&1 && set PY=py -3
 if not defined PY ( where python >nul 2>&1 && set PY=python )
 if not defined PY (
-    echo [X] 未找到 Python。请先安装 Python 3.10+ 并勾选 Add to PATH。
+    echo [X] Python not found. Install Python 3.10+ and check "Add to PATH".
     pause
     exit /b 1
 )
 
-REM ---------- 2. 后端依赖 ----------
-echo [1/4] 检查后端依赖...
+REM ---------- 2. Backend dependencies ----------
+echo [1/4] Checking backend dependencies...
 %PY% -c "import fastapi, uvicorn, faster_whisper, yaml, requests, sse_starlette" >nul 2>&1
 if errorlevel 1 (
-    echo       安装后端依赖（首次约 5-15 分钟）...
+    echo       Installing backend dependencies - first run, takes 5-15 min...
     %PY% -m pip install -r requirements.txt fastapi "uvicorn[standard]" sse-starlette
     if errorlevel 1 (
-        echo [X] 后端依赖安装失败。
+        echo [X] Backend dependency install failed.
         pause
         exit /b 1
     )
 )
-echo       后端依赖就绪
+echo       Backend dependencies OK
 
-REM ---------- 3. 前端依赖与构建 ----------
-echo [2/4] 检查前端...
+REM ---------- 3. Frontend deps and build ----------
+echo [2/4] Checking frontend...
 where npm >nul 2>&1
 if errorlevel 1 (
-    echo [X] 未找到 Node.js / npm。请先安装 https://nodejs.org/
+    echo [X] Node.js / npm not found. Install from https://nodejs.org/
     pause
     exit /b 1
 )
 cd web
 if not exist node_modules (
-    echo       安装前端依赖（首次约 2-5 分钟）...
+    echo       Installing frontend dependencies - first run, takes 2-5 min...
     call npm install
     if errorlevel 1 (
-        echo [X] 前端依赖安装失败。
+        echo [X] Frontend dependency install failed.
         pause
         exit /b 1
     )
 )
 if not exist dist (
-    echo       构建前端...
+    echo       Building frontend...
     call npm run build
     if errorlevel 1 (
-        echo [X] 前端构建失败。
+        echo [X] Frontend build failed.
         pause
         exit /b 1
     )
@@ -64,21 +63,21 @@ if not exist dist (
 cd ..
 
 REM ---------- 4. FFmpeg ----------
-echo [3/4] 检查 FFmpeg...
+echo [3/4] Checking FFmpeg...
 where ffmpeg >nul 2>&1
 if errorlevel 1 (
-    echo   [!] 未找到 FFmpeg，转录和渲染会失败。
-    echo       安装：winget install Gyan.FFmpeg
+    echo   [!] FFmpeg not found. Transcribe and render will fail.
+    echo       Install: winget install Gyan.FFmpeg
     pause
     exit /b 1
 )
-echo       FFmpeg 就绪
+echo       FFmpeg OK
 
-REM ---------- 启动 ----------
-echo [4/4] 启动服务...
+REM ---------- Start ----------
+echo [4/4] Starting server...
 echo.
-echo   浏览器将打开 http://127.0.0.1:8000
-echo   关闭本窗口即可停止服务。
+echo   Browser will open http://127.0.0.1:8000
+echo   Close this window to stop the server.
 echo ==================================================================
 echo.
 
