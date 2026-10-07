@@ -30,3 +30,6 @@ hf_cache/
 
 # 前端依赖与构建产物
 node_modules/
+
+# TypeScript 编译缓存
+*.tsbuildinfo
