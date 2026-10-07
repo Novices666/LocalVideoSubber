@@ -157,6 +157,13 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
         threshold = float(cfg.get("jobs.segment_threshold", 1800) or 0)
         chunks = plan_chunks(info.duration, threshold)
 
+        # 长视频分段时，每段 VAD 检测（onnxruntime CPU 单线程）要 40-50 秒，
+        # 4 段就是 3 分钟纯 VAD，且该阶段无法取消。分段本身已按时间切分，
+        # VAD 静音过滤价值低，自动关闭以加速并让取消能及时生效。
+        if len(chunks) > 1 and asr_opts.vad_filter:
+            asr_opts.vad_filter = False
+            ctx.log("长视频分段处理：已自动关闭 VAD 静音过滤（分段已按时间切分，且 VAD 检测很慢）")
+
         all_segments: list[Segment] = []
         detected_lang = ""
 

@@ -48,6 +48,19 @@ def _gpu_is_blackwell() -> bool:
     return _blackwell_cache
 
 
+def _wav_duration(path: Path) -> float:
+    """读取 wav 文件时长（秒）。失败返回 0。"""
+    try:
+        import wave
+
+        with wave.open(str(path), "rb") as w:
+            frames = w.getnframes()
+            rate = w.getframerate() or 1
+            return frames / rate
+    except Exception:  # noqa: BLE001
+        return 0.0
+
+
 class FasterWhisperEngine(AsrEngine):
     name = "faster-whisper"
 
@@ -220,7 +233,15 @@ class FasterWhisperEngine(AsrEngine):
         # faster-whisper 的 hotwords 在旧版本不存在，做兼容剔除
         # 注意：transcribe() 同步执行 VAD 检测 + 音频编码，此阶段无法中断，但前后都检查取消
         if progress:
-            progress(0.0, "VAD 检测与音频编码中…")
+            if opts.vad_filter:
+                dur = _wav_duration(audio_path)
+                if dur > 120:
+                    # VAD 用 onnxruntime CPU 单线程，长音频检测很慢（约 0.05-0.08x 实时）
+                    progress(0.0, f"VAD 检测中（{dur:.0f}s 音频，约需 {dur * 0.07:.0f}s，此阶段无法中断）")
+                else:
+                    progress(0.0, "VAD 检测与音频编码中…")
+            else:
+                progress(0.0, "音频编码中…")
         try:
             iterator, info = self._model.transcribe(str(audio_path), **kwargs)
         except TypeError as exc:
