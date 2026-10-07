@@ -73,6 +73,7 @@ translate:
   temperature: 0.3
   top_p: 0.9
   max_tokens: 4096
+  # 单次请求超时（秒）。本地 reasoning 模型思考慢时可调大（600/1800）
   timeout: 300
   # 单批并发请求数（本地单卡建议 1-2）
   concurrency: 1

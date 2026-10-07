@@ -48,6 +48,7 @@ export function SettingsPage() {
   const [refreshingLlm, setRefreshingLlm] = useState(false);
   const [disableThinking, setDisableThinking] = useState(true);
   const [temperature, setTemperature] = useState(0.3);
+  const [timeoutSec, setTimeoutSec] = useState(300);
   const [batch, setBatch] = useState(25);
   const [context, setContext] = useState(3);
   const [concurrency, setConcurrency] = useState(1);
@@ -76,6 +77,7 @@ export function SettingsPage() {
       setLlmModel(String(getNested(v, "translate.model", "") ?? ""));
       setDisableThinking(Boolean(getNested(v, "translate.disable_thinking", true)));
       setTemperature(Number(getNested(v, "translate.temperature", 0.3)));
+      setTimeoutSec(Number(getNested(v, "translate.timeout", 300)));
       setBatch(Number(getNested(v, "translate.batch_size", 25)));
       setContext(Number(getNested(v, "translate.context_size", 3)));
       setConcurrency(Number(getNested(v, "translate.concurrency", 1)));
@@ -129,6 +131,7 @@ export function SettingsPage() {
         "translate.model": llmModel,
         "translate.disable_thinking": disableThinking,
         "translate.temperature": temperature,
+        "translate.timeout": timeoutSec,
         "translate.batch_size": batch,
         "translate.context_size": context,
         "translate.concurrency": concurrency,
@@ -262,6 +265,19 @@ export function SettingsPage() {
                 <div className="space-y-1.5">
                   <Label>API Key</Label>
                   <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="timeout">请求超时（秒）</Label>
+                  <Input
+                    id="timeout"
+                    type="number"
+                    min={10}
+                    value={timeoutSec}
+                    onChange={(e) => setTimeoutSec(Number(e.target.value) || 300)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    单次请求等待上限。本地模型思考较慢时可调大（如 600 / 1800）
+                  </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="dt">关闭思考模式</Label>
