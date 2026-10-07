@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -11,6 +10,9 @@ export interface CueEditable {
   text?: boolean;
   translation?: boolean;
 }
+
+/** 表头单元格公共类：sticky 固定，实心背景避免滚动穿透 */
+const TH = "sticky top-0 z-10 bg-muted h-9 px-2 text-left align-middle font-medium text-muted-foreground text-xs";
 
 export function CueTable({
   cues,
@@ -77,23 +79,27 @@ export function CueTable({
   return (
     <div className={cn("flex h-full flex-col", className)}>
       <div className="scroll-area min-h-0 flex-1 overflow-auto rounded-md border border-border">
-        <Table>
-          <TableHeader className="sticky top-0 z-10 bg-muted">
-            <TableRow>
-              <TableHead className="w-12 text-right">#</TableHead>
-              <TableHead className="w-24">开始</TableHead>
-              <TableHead className="w-24">结束</TableHead>
-              <TableHead className="w-[38%]">原文</TableHead>
-              <TableHead className="w-[38%]">译文</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
+        {/* 用原生 table：sticky 直接作用于 th，且只有一个滚动容器 */}
+        <table className="w-full caption-bottom text-sm">
+          <thead>
+            <tr className="border-b border-border">
+              <th className={cn(TH, "w-12 text-right")}>#</th>
+              <th className={cn(TH, "w-24")}>开始</th>
+              <th className={cn(TH, "w-24")}>结束</th>
+              <th className={cn(TH, "w-[38%]")}>原文</th>
+              <th className={cn(TH, "w-[38%]")}>译文</th>
+            </tr>
+          </thead>
+          <tbody>
             {rows.map((cue, i) => (
-              <TableRow key={i}>
-                <TableCell className="tabular-nums text-right text-muted-foreground">
+              <tr
+                key={i}
+                className="border-b border-border transition-colors hover:bg-muted/50"
+              >
+                <td className="p-2 align-middle tabular-nums text-right text-muted-foreground">
                   {cue.index}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="p-2 align-middle">
                   {editable.start ? (
                     <Input
                       value={cue.start}
@@ -103,8 +109,8 @@ export function CueTable({
                   ) : (
                     <span className="tabular-nums">{cue.start.toFixed(2)}</span>
                   )}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="p-2 align-middle">
                   {editable.end ? (
                     <Input
                       value={cue.end}
@@ -114,8 +120,8 @@ export function CueTable({
                   ) : (
                     <span className="tabular-nums">{cue.end.toFixed(2)}</span>
                   )}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="p-2 align-middle">
                   {editable.text ? (
                     <Input
                       value={cue.text}
@@ -125,8 +131,8 @@ export function CueTable({
                   ) : (
                     <span className="break-anywhere">{cue.text}</span>
                   )}
-                </TableCell>
-                <TableCell>
+                </td>
+                <td className="p-2 align-middle">
                   {editable.translation ? (
                     <Input
                       value={cue.translation}
@@ -139,11 +145,11 @@ export function CueTable({
                       {cue.translation || "—"}
                     </span>
                   )}
-                </TableCell>
-              </TableRow>
+                </td>
+              </tr>
             ))}
-          </TableBody>
-        </Table>
+          </tbody>
+        </table>
       </div>
 
       {canEditAny && (
