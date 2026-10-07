@@ -81,11 +81,7 @@ python scripts/download_models.py --asr large-v3-turbo
 python scripts/download_models.py --asr tiny
 ```
 
-下载翻译模型：
-
-```bash
-python scripts/download_models.py --gguf qwen3.5-9b-q4_k_m
-```
+> 下载器仅用于转录（ASR）模型。翻译模型请用 LM Studio 等工具自行下载，然后在翻译页填写服务地址与模型名即可。
 
 模型默认放在 `models/`，可在 `config.yaml` 中通过 `model_root` 修改。
 

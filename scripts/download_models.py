@@ -5,8 +5,7 @@
     python scripts/download_models.py --list                 # 看可选模型
     python scripts/download_models.py --asr large-v3-turbo   # 下载 ASR 模型
     python scripts/download_models.py --asr tiny --device cpu
-    python scripts/download_models.py --gguf qwen3.5-9b-q4_k_m
-    python scripts/download_models.py --all-basic            # tiny + 常用翻译模型
+    python scripts/download_models.py --all-basic            # tiny + large-v3-turbo（转录用）
 
 国内默认走 hf-mirror.com（可用 --endpoint 覆盖）。
 """
@@ -72,35 +71,6 @@ GGML_MODELS = {
     "ggml-large-v3.bin":        ("ggerganov/whisper.cpp", "ggml-large-v3.bin",        "~3.1 GB"),
 }
 
-# --------------------------------------------------------------------------
-# 翻译模型（GGUF，给 llama.cpp / LM Studio 用）
-# --------------------------------------------------------------------------
-GGUF_MODELS = {
-    "qwen3.5-9b-q4_k_m": (
-        "lmstudio-community/Qwen3.5-9B-GGUF", "Qwen3.5-9B-Q4_K_M.gguf",
-        "~5.2 GB", "推荐：201 语言，结构化输出强，8G 显存合适",
-    ),
-    "qwen2.5-7b-instruct-q4_k_m": (
-        "Qwen/Qwen2.5-7B-Instruct-GGUF", "qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf",
-        "~4.7 GB", "老型号，稳定，社区验证多",
-    ),
-    "qwen2.5-3b-instruct-q4_k_m": (
-        "Qwen/Qwen2.5-3B-Instruct-GGUF", "qwen2.5-3b-instruct-q4_k_m.gguf",
-        "~1.9 GB", "小显存/纯 CPU 可用",
-    ),
-    "qwen3-8b-q4_k_m": (
-        "Qwen/Qwen3-8B-GGUF", "Qwen3-8B-Q4_K_M.gguf",
-        "~5.0 GB", "新一代，推理更强",
-    ),
-    "gemma-3-12b-it-q4": (
-        "unsloth/gemma-3-12b-it-GGUF", "gemma-3-12b-it-Q4_K_M.gguf",
-        "~7.3 GB", "多语言翻译质量优秀，12G+ 显存",
-    ),
-    "aya-expanse-8b-q4": (
-        "bartowski/aya-expanse-8b-GGUF", "aya-expanse-8b-Q4_K_M.gguf",
-        "~5.1 GB", "专为多语言设计",
-    ),
-}
 
 
 # --------------------------------------------------------------------------
@@ -280,37 +250,6 @@ def install_ggml(name: str, model_root: Path, endpoint: str, force: bool = False
     return 0
 
 
-def install_gguf(name: str, model_root: Path, endpoint: str, force: bool = False) -> int:
-    if name not in GGUF_MODELS:
-        print(f"[错误] 未知翻译模型: {name}")
-        print(f"    可选: {', '.join(GGUF_MODELS)}")
-        return 1
-    repo, filename, size, desc = GGUF_MODELS[name]
-    dest = model_root / "translate" / name
-    print(f"\n=== {name}  ({size})  {desc} ===")
-    try:
-        download_file(repo, filename, dest, force=force)
-        # 分片模型：把同前缀的其他分片也拉下来
-        if "-00001-of-" in filename:
-            total = int(filename.split("-of-")[1].split(".")[0])
-            prefix = filename.split("-00001-of-")[0]
-            for i in range(2, total + 1):
-                part = f"{prefix}-{i:05d}-of-{total:05d}.gguf"
-                try:
-                    download_file(repo, part, dest, force=force)
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[注意] 分片 {part} 下载失败: {exc}")
-    except Exception as exc:  # noqa: BLE001
-        print(f"[错误] 下载失败: {exc}")
-        return 1
-    print(f"[完成] {dest}")
-    print("    用 llama.cpp 起服务：")
-    main_gguf = next(dest.glob("*.gguf"), dest / filename)
-    print(f'      llama-server -m "{main_gguf}" -c 8192 -ngl 99 --port 8080')
-    return 0
-
-
-# --------------------------------------------------------------------------
 def list_all(model_root: Path) -> None:
     print("\n可用 ASR 模型 (faster-whisper):")
     for k, (repo, size, desc) in ASR_MODELS.items():
@@ -318,13 +257,9 @@ def list_all(model_root: Path) -> None:
     print("\n可用 ASR 模型 (whisper.cpp GGML):")
     for k, (repo, fn, size) in GGML_MODELS.items():
         print(f"  {k:<26} {size:<9}")
-    print("\n可用翻译模型 (GGUF, 配 llama.cpp / LM Studio):")
-    for k, (repo, fn, size, desc) in GGUF_MODELS.items():
-        print(f"  {k:<30} {size:<9} {desc}")
     print(f"\n模型根目录: {model_root}")
     print("\n示例:")
     print("  python scripts/download_models.py --asr large-v3-turbo")
-    print("  python scripts/download_models.py --gguf qwen3.5-9b-q4_k_m")
     print("  python scripts/download_models.py --all-basic")
 
 
@@ -366,10 +301,8 @@ def main() -> int:
                     help="下载 faster-whisper 模型 (可重复)")
     ap.add_argument("--ggml", action="append", default=[], metavar="NAME",
                     help="下载 whisper.cpp 模型 (可重复)")
-    ap.add_argument("--gguf", action="append", default=[], metavar="NAME",
-                    help="下载翻译用 GGUF 模型 (可重复)")
     ap.add_argument("--all-basic", action="store_true",
-                    help="下载 tiny + large-v3-turbo + qwen3.5-9b")
+                    help="下载 tiny + large-v3-turbo（转录用）")
     ap.add_argument("--list", action="store_true", help="列出可选模型")
     ap.add_argument("--status", action="store_true", help="显示已下载模型")
     ap.add_argument("--endpoint", default=None, help="HF 镜像地址")
@@ -388,11 +321,9 @@ def main() -> int:
 
     asr = list(args.asr)
     ggml = list(args.ggml)
-    gguf = list(args.gguf)
     if args.all_basic:
         asr = list(dict.fromkeys(asr + ["tiny", "large-v3-turbo"]))
-        gguf = list(dict.fromkeys(gguf + ["qwen3.5-9b-q4_k_m"]))
-    if not (asr or ggml or gguf):
+    if not (asr or ggml):
         ap.print_help()
         print("\n[注意] 没指定要下载什么。先跑 --list 看选项。")
         return 2
@@ -405,8 +336,6 @@ def main() -> int:
         rc |= install_asr(name, model_root, endpoint, force=args.force)
     for name in ggml:
         rc |= install_ggml(name, model_root, endpoint, force=args.force)
-    for name in gguf:
-        rc |= install_gguf(name, model_root, endpoint, force=args.force)
 
     print()
     show_status(model_root)
