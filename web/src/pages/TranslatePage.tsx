@@ -52,7 +52,7 @@ function parseGlossary(text: string): Record<string, string> {
 
 export function TranslatePage() {
   const { workspace, refresh } = useWorkspace();
-  const { state, start, cancel } = useJob();
+  const { state, start, resume, cancel } = useJob();
   const { toast } = useToast();
   const { load, save, saving } = useConfig();
 
@@ -170,6 +170,13 @@ export function TranslatePage() {
       setSystemPrompt(String(getNested(v, "translate.system_prompt", "") ?? ""));
       // 用真实配置静默拉取模型列表，失败不打扰用户（手动刷新时才报错）
       if (realBase) refreshModels(realBase, realKey, true);
+    });
+    // 刷新页面后，若后端有运行中的翻译任务，自动恢复连接与进度显示
+    api.jobs().then(({ jobs }) => {
+      const running = jobs.find(
+        (j) => j.kind === "translate" && (j.status === "运行中" || j.status === "排队中"),
+      );
+      if (running) resume(running.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
