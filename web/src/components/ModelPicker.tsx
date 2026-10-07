@@ -50,11 +50,6 @@ export function ModelPicker({
     return () => document.removeEventListener("mousedown", onDoc);
   }, []);
 
-  const filtered = opts.filter((o) => {
-    const q = (value || "").toLowerCase();
-    return o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q);
-  });
-
   return (
     <div className={cn("flex gap-1.5", className)} ref={containerRef}>
       <div className="relative min-w-0 flex-1">
@@ -67,9 +62,9 @@ export function ModelPicker({
           onFocus={() => setOpen(true)}
           placeholder={placeholder}
         />
-        {open && filtered.length > 0 && (
+        {open && opts.length > 0 && (
           <div className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-border bg-card p-1 shadow-lg">
-            {filtered.map((o) => (
+            {opts.map((o) => (
               <button
                 key={o.value}
                 type="button"
