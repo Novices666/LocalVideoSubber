@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/select";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { CueTable } from "@/components/CueTable";
-import { ModelPicker } from "@/components/ModelPicker";
+import { ModelPicker, type ModelOption } from "@/components/ModelPicker";
 import { DragDrop } from "@/components/DragDrop";
 import { useJob } from "@/hooks/useJob";
 import { useConfig } from "@/hooks/useConfig";
@@ -36,7 +36,7 @@ export function TranscribePage() {
   const { state, start, resume, cancel } = useJob();
   const { load, save, saving } = useConfig();
 
-  const [asrOptions, setAsrOptions] = useState<string[]>([]);
+  const [asrOptions, setAsrOptions] = useState<ModelOption[]>([]);
   const [refreshingModels, setRefreshingModels] = useState(false);
   const [video, setVideo] = useState("");
   const [media, setMedia] = useState<MediaInfo | null>(null);
@@ -61,7 +61,7 @@ export function TranscribePage() {
     setRefreshingModels(true);
     try {
       const m = await api.models();
-      setAsrOptions(m.asr.map((x) => x.value));
+      setAsrOptions(m.asr.map((x) => ({ value: x.value, label: x.label })));
       // 若还没选模型，自动选中第一个，避免每次打开都要手动选
       setModel((cur) => cur || (m.asr[0]?.value ?? ""));
     } finally {

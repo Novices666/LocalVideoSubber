@@ -167,71 +167,79 @@ def resolve_model_path(
 ) -> tuple[str, str]:
     """解析模型位置。
 
-    返回 (resolved, source)，其中 source ∈ {"explicit", "config", "default", "repo"}。
-    - resolved 为本地存在的路径字符串，或 HF 仓库名（交给 faster-whisper 自己下载）
+    返回 (resolved, source)，其中 source ∈ {"explicit", "config", "default", "local-fallback", "repo"}。
+    显式值优先于配置值；两者都先做精确匹配，失败后按名称模糊匹配本地模型。
     """
     sub = MODEL_SUBDIRS.get(kind, kind)
 
-    # 1) 调用方显式指定
-    candidates: list[tuple[str, str]] = []
-    if explicit and explicit.strip() and explicit.strip().lower() not in {"auto", "none"}:
-        candidates.append((explicit.strip(), "explicit"))
-
-    # 2) 配置文件
-    conf_val = cfg.get(f"{kind}.model")
-    if isinstance(conf_val, str) and conf_val.strip():
-        candidates.append((conf_val.strip(), "config"))
-
-    for value, source in candidates:
-        # 绝对路径
+    def _exact_match(value: str) -> str | None:
+        """精确匹配：绝对路径 / 相对 model_root / 相对项目根。"""
         p = Path(value).expanduser()
         if p.is_absolute():
-            if p.exists():
-                return str(p), source
-            continue  # 绝对路径但不存在 -> 试下一个候选
-        # 相对 model_root
+            return str(p) if p.exists() else None
         rel = (cfg.model_root / value).resolve()
         if rel.exists():
-            return str(rel), source
-        # 相对项目根
+            return str(rel)
         proj = (PROJECT_ROOT / value).resolve()
         if proj.exists():
-            return str(proj), source
+            return str(proj)
+        return None
 
-    # 3) 默认目录扫描：model_root/<sub>/ 下的本地模型
+    def _fuzzy_local(value: str) -> tuple[str | None, str]:
+        """按名称模糊匹配 model_root/<sub>/ 下的本地完整模型。"""
+        default_dir = cfg.model_root / sub
+        if not default_dir.is_dir():
+            return None, ""
+        children = sorted(d for d in default_dir.iterdir() if d.is_dir())
+        local_models = [d for d in children if _is_complete_faster_whisper(d)]
+        if not local_models:
+            return None, ""
+
+        wanted = _model_name_key(value)
+
+        def _score(path: Path) -> tuple[int, int]:
+            key = _model_name_key(path.name)
+            if wanted and (wanted in key or key in wanted):
+                return (100 + min(len(key), len(wanted)), _dir_size_mb(path))
+            return (0, _dir_size_mb(path))
+
+        best = max(local_models, key=_score)
+        if len(local_models) == 1 or _score(best)[0] > 0:
+            return str(best), "local-fallback"
+        return None, ""
+
+    # 1) 显式值：先精确，后模糊
+    if explicit and explicit.strip() and explicit.strip().lower() not in {"auto", "none"}:
+        ex = explicit.strip()
+        r = _exact_match(ex)
+        if r:
+            return r, "explicit"
+        if kind == "asr":
+            r, src = _fuzzy_local(ex)
+            if r:
+                return r, src
+
+    # 2) 配置值：先精确，后模糊
+    conf_val = cfg.get(f"{kind}.model")
+    if isinstance(conf_val, str) and conf_val.strip():
+        cv = conf_val.strip()
+        r = _exact_match(cv)
+        if r:
+            return r, "config"
+        if kind == "asr":
+            r, src = _fuzzy_local(cv)
+            if r:
+                return r, src
+
+    # 3) 默认目录扫描（唯一子目录 / 单文件）
     default_dir = cfg.model_root / sub
     if default_dir.is_dir():
         children = sorted(d for d in default_dir.iterdir() if d.is_dir())
-
-        # faster-whisper 的目录名通常是 `faster-whisper-<size>`，其中既没有
-        # `asr` 也不一定和配置中的仓库名完全一致（例如 large-v3 与
-        # large-v3-turbo）。配置路径失效时，优先选名称最接近且文件完整的本地模型。
-        if kind == "asr":
-            local_models = [d for d in children if _is_complete_faster_whisper(d)]
-            if local_models:
-                wanted = _model_name_key(conf_val)
-
-                def _score(path: Path) -> tuple[int, int]:
-                    key = _model_name_key(path.name)
-                    if wanted and (wanted in key or key in wanted):
-                        return (100 + min(len(key), len(wanted)), _dir_size_mb(path))
-                    return (0, _dir_size_mb(path))
-
-                best = max(local_models, key=_score)
-                if len(local_models) == 1 or _score(best)[0] > 0:
-                    source = "local-fallback" if conf_val else "local"
-                    return str(best), source
-
         if len(children) == 1:
             return str(children[0]), "default"
-        # 目录下直接是模型文件（whisper.cpp 场景）
         files = [f for f in default_dir.iterdir() if f.suffix.lower() in GGML_SUFFIXES]
         if len(files) == 1:
             return str(files[0]), "default"
-        # 多个候选，挑名字里带 kind 关键字的第一个
-        for child in children + files:
-            if kind.replace("-", "") in child.name.lower().replace("-", ""):
-                return str(child), "default"
 
     # 4) 兜底：交给 faster-whisper 按仓库名下载
     repo = conf_val if isinstance(conf_val, str) and conf_val.strip() else "large-v3"
@@ -260,16 +268,30 @@ def _is_complete_faster_whisper(path: Path) -> bool:
 
 
 def scan_models(cfg: Config, kind: str) -> list[dict[str, str]]:
-    """扫描 model_root 下某类可用模型。"""
+    """扫描 model_root 下某类可用模型。
+
+    faster-whisper 模型的 value 返回短名（如 large-v3-turbo），显示更友好；
+    提交时后端 resolve_model_path 会自动模糊匹配到完整路径。
+    """
     sub = MODEL_SUBDIRS.get(kind, kind)
     base = cfg.model_root / sub
     found: list[dict[str, str]] = []
     if not base.is_dir():
         return found
 
+    def _short_name(name: str) -> str:
+        for prefix in ("faster-whisper-", "faster_whisper_", "fasterwhisper"):
+            if name.startswith(prefix):
+                return name[len(prefix):]
+        return name
+
     def _label(d: Path) -> tuple[str, str]:
         rel = d.relative_to(cfg.model_root).as_posix()
         size = _dir_size_mb(d) if d.is_dir() else d.stat().st_size / 1024 / 1024
+        # ASR 目录用短名作为 value（large-v3-turbo），label 保留完整信息
+        if kind == "asr" and d.is_dir():
+            val = _short_name(d.name)
+            return val, f"{val}  ({size:.0f} MB)"
         return rel, f"{rel}  ({size:.0f} MB)"
 
     for child in sorted(base.iterdir()):

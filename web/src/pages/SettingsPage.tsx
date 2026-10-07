@@ -15,7 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
-import { ModelPicker } from "@/components/ModelPicker";
+import { ModelPicker, type ModelOption } from "@/components/ModelPicker";
 
 type ConfigValues = Record<string, unknown>;
 
@@ -37,7 +37,7 @@ export function SettingsPage() {
 
   const [modelRoot, setModelRoot] = useState("./models");
   const [asrModel, setAsrModel] = useState("");
-  const [asrModelOptions, setAsrModelOptions] = useState<string[]>([]);
+  const [asrModelOptions, setAsrModelOptions] = useState<ModelOption[]>([]);
   const [refreshingAsr, setRefreshingAsr] = useState(false);
   const [asrDevice, setAsrDevice] = useState("auto");
   const [asrCompute, setAsrCompute] = useState("float16");
@@ -101,7 +101,7 @@ export function SettingsPage() {
     setRefreshingAsr(true);
     try {
       const m = await api.models();
-      setAsrModelOptions(m.asr.map((x) => x.value));
+      setAsrModelOptions(m.asr.map((x) => ({ value: x.value, label: x.label })));
     } finally {
       setRefreshingAsr(false);
     }
