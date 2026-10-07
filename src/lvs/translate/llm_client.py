@@ -44,7 +44,8 @@ class LlmConfig:
     # 是否请求 JSON 输出模式
     json_mode: bool = False
     # Qwen3/Qwen3.5 等 reasoning 模型：通过 chat template 关闭思考，直接输出译文。
-    disable_thinking: bool = False
+    # 默认 True，与前端/API 默认值保持一致。
+    disable_thinking: bool = True
     # 额外请求体字段（透传给服务端）
     extra_body: dict[str, Any] = field(default_factory=dict)
 
@@ -64,7 +65,7 @@ class LlmConfig:
             frequency_penalty=cfg.get("translate.frequency_penalty"),
             seed=cfg.get("translate.seed"),
             json_mode=bool(cfg.get("translate.json_mode", False)),
-            disable_thinking=bool(cfg.get("translate.disable_thinking", False)),
+            disable_thinking=bool(cfg.get("translate.disable_thinking", True)),
             extra_body=dict(cfg.get("translate.extra_body") or {}),
         )
 
