@@ -8,7 +8,7 @@ import logging
 import shutil
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .asr.base import (
     AsrError,
@@ -56,6 +56,29 @@ def _to_cancelled(exc: Exception) -> None:
     """把 media.Cancelled 统一成 TaskCancelled。"""
     if isinstance(exc, (Cancelled,)) or type(exc).__name__ == "Cancelled":
         raise TaskCancelled()
+
+
+def _progress_with_log(
+    ctx: JobContext, lo: float, hi: float, throttle: float = 3.0
+) -> Callable[[float, str], None]:
+    """进度回调：更新进度条的同时写日志。
+
+    含 "/" 的高频进度（如"烧录 12/345s"）按 throttle 秒节流，
+    避免每帧刷爆日志；阶段消息（无 "/"）总是写日志。
+    """
+    last = {"t": 0.0}
+
+    def fn(p: float, msg: str = "") -> None:
+        ctx.progress(lo + (hi - lo) * max(0.0, min(1.0, p)), msg)
+        if not msg:
+            return
+        now = time.time()
+        if "/" in msg and now - last["t"] < throttle:
+            return
+        ctx.log(msg)
+        last["t"] = now
+
+    return fn
 
 
 def _cleanup(
@@ -468,7 +491,7 @@ def run_render(job: Job, ctx: JobContext) -> dict[str, Any]:
         try:
             res = mux_subtitles(
                 video, cues, out, ropts,
-                progress=ctx.scaled(0.05, 0.98), cancel=ctx.cancel,
+                progress=_progress_with_log(ctx, 0.05, 0.98), cancel=ctx.cancel,
             )
         except Cancelled:
             raise TaskCancelled()
@@ -485,7 +508,7 @@ def run_render(job: Job, ctx: JobContext) -> dict[str, Any]:
         try:
             res = burn_subtitles(
                 video, cues, out, ropts,
-                progress=ctx.scaled(0.05, 0.98), cancel=ctx.cancel,
+                progress=_progress_with_log(ctx, 0.05, 0.98), cancel=ctx.cancel,
             )
         except Cancelled:
             raise TaskCancelled()
@@ -516,6 +539,7 @@ def run_resegment(job: Job, ctx: JobContext) -> dict[str, Any]:
             setattr(sopts, k, v)
     out = segments_to_cues(segs, sopts)
     ctx.progress(1.0, f"{len(cues)} 条 -> {len(out)} 条")
+    ctx.log(f"重新断句完成：{len(cues)} 条 -> {len(out)} 条")
     return {"cues": [c.to_dict() for c in out], "stats": stats(out)}
 
 

@@ -89,10 +89,13 @@ export function HomePage() {
     try {
       const { jobs } = await api.jobs();
       setJobs(jobs.slice(0, 8));
-      // 若选中的任务状态更新了，同步刷新详情
+      // 同步刷新选中任务的详情：运行中/排队中任务进度日志持续变化，始终刷新；
+      // 已完成任务只在状态变化时刷新一次
       if (selectedJob) {
         const fresh = jobs.find((j) => j.id === selectedJob.id);
-        if (fresh && fresh.status !== selectedJob.status) {
+        if (fresh && (fresh.status === "运行中" || fresh.status === "排队中")) {
+          selectJob(fresh.id);
+        } else if (fresh && fresh.status !== selectedJob.status) {
           selectJob(fresh.id);
         }
       }
