@@ -1,0 +1,32 @@
+# 模型（体积大，不进 git）
+models/**
+!models/.gitkeep
+
+# 输出产物
+output/
+
+# 字幕样式规范文件（运行时生成，内置预设硬编码在 styles.py）
+styles/
+*.srt
+*.vtt
+*.ass
+
+# 配置（含本机路径）
+config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# 缓存
+.pytest_cache/
+.cache/
+hf_cache/
+
+# 前端依赖与构建产物
+node_modules/

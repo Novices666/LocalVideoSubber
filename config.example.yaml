@@ -1,0 +1,144 @@
+# ============================================================
+# LocalVideoSubber 配置模板
+# 复制为 config.yaml 后按需修改（config.yaml 不进 git）
+# ============================================================
+
+# ---------- 模型根目录 ----------
+# 所有相对路径都以此为基准，也可以在配置中填写绝对路径。
+model_root: ./models
+
+# ---------- ASR（语音转录）----------
+asr:
+  # 引擎: faster-whisper | whispercpp
+  engine: faster-whisper
+
+  # 模型位置：相对 model_root，或绝对路径，或 HF 仓库名（如 large-v3）
+  #   - 相对: "asr/faster-whisper-large-v3"
+  #   - 绝对: "D:/models/whisper/large-v3"
+  #   - 仓库: "large-v3"（首次自动下载到 HF 缓存）
+  model: asr/faster-whisper-large-v3
+
+  # 计算精度: Blackwell(RTX 50系) 用 float16；老显卡 int8_float16 更省显存
+  compute_type: float16
+  # 设备: auto | cuda | cpu
+  device: auto
+
+  # 语言: auto 自动检测，或 zh / en / ja ...
+  language: auto
+  # 任务: transcribe（原语言转录）| translate（转录并直译为英文）
+  task: transcribe
+
+  # 解码参数
+  beam_size: 5
+  best_of: 5
+  temperature: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  patience: 1.0
+  length_penalty: 1.0
+  repetition_penalty: 1.0
+  no_repeat_ngram_size: 0
+  compression_ratio_threshold: 2.4
+  log_prob_threshold: -1.0
+  no_speech_threshold: 0.6
+  condition_on_previous_text: true
+  prompt_reset_on_temperature: 0.5
+
+  # 热词（提升人名/术语识别率，英文逗号分隔）
+  initial_prompt: ""
+  hotwords: ""
+
+  # 内置 VAD 过滤静音
+  vad_filter: true
+  vad_parameters:
+    threshold: 0.5
+    min_speech_duration_ms: 250
+    max_speech_duration_s: 30
+    min_silence_duration_ms: 2000
+    speech_pad_ms: 400
+
+  # 是否输出词级时间戳（智能断句需要）
+  word_timestamps: true
+
+# ---------- 翻译（本地 LLM）----------
+translate:
+  # OpenAI 兼容接口。本地/远程通吃：
+  #   llama.cpp  : http://127.0.0.1:8080/v1
+  #   Ollama     : http://127.0.0.1:11434/v1
+  #   LM Studio  : http://127.0.0.1:1234/v1
+  #   vLLM       : http://127.0.0.1:8000/v1
+  base_url: http://127.0.0.1:8080/v1
+  api_key: "sk-no-key-required"
+  model: qwen3.5-9b
+  # Qwen3/Qwen3.5 等 reasoning 模型建议关闭思考，直接输出字幕 JSON
+  disable_thinking: true
+  temperature: 0.3
+  top_p: 0.9
+  max_tokens: 4096
+  timeout: 300
+  # 单批并发请求数（本地单卡建议 1-2）
+  concurrency: 1
+  # 失败重试次数
+  max_retries: 3
+
+  # 源/目标语言
+  source_lang: auto
+  target_lang: zh
+
+  # 分批策略
+  batch_size: 25           # 每批送几条字幕
+  context_size: 3          # 携带上批末尾几条作上下文
+  min_batch_size: 5        # 对齐失败时降半重试的下限
+
+  # 术语表（强制译名一致），形如 {"原文": "译文"}
+  glossary: {}
+  #   Naruto: 鸣人
+  #   Jutsu: 忍术
+
+  # 自定义系统提示词（留空用内置模板）
+  system_prompt: ""
+
+# ---------- 智能断句 ----------
+segment:
+  enabled: true
+  max_chars_cjk: 18       # 中日韩单行最大字数
+  max_chars_latin: 42     # 拉丁字母单行最大字符数
+  min_duration: 0.8       # 单条最短时长（秒）
+  max_duration: 8.0       # 单条最长时长（秒）
+  max_gap: 1.0            # 超过此时长的停顿必断句
+  max_lines: 2            # 单条最多几行
+
+# ---------- 渲染 ----------
+render:
+  # 硬字幕烧录编码器: auto | h264_nvenc | hevc_nvenc | libx264
+  burn_encoder: auto
+  burn_crf: 20
+  burn_preset: p5         # NVENC: p1(最快)~p7(最慢)；x264: medium
+  # 软字幕默认封装格式: mkv | mp4
+  soft_container: mkv
+
+  # ASS 样式
+  style:
+    font_name: Microsoft YaHei
+    font_size: 42
+    primary_color: "&H00FFFFFF"   # 白
+    outline_color: "&H00000000"   # 黑边
+    back_color: "&H80000000"
+    outline: 2
+    shadow: 1
+    margin_v: 40
+    align: 2                      # 2=底部居中
+
+  # 双语模式样式
+  bilingual:
+    # 顺序: target_top（译文在上）/ source_top（原文在上）
+    order: target_top
+    source_font_size: 32
+    target_font_size: 42
+
+# ---------- 任务与输出 ----------
+jobs:
+  output_dir: ./output
+  # 是否保留中间产物（抽出的音频、分段字幕）
+  keep_intermediate: true
+  # 长视频自动分段阈值（秒），超过则切段逐段处理
+  segment_threshold: 1800
+

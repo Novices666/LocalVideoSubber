@@ -1,0 +1,24 @@
+# LocalVideoSubber 运行依赖
+# 安装:  pip install -r requirements.txt
+# 或:    uv pip install -r requirements.txt
+
+# ---- 语音识别 (ASR) ----
+faster-whisper>=1.0
+ctranslate2>=4.0
+
+# ---- 翻译 (OpenAI 兼容接口客户端) ----
+openai>=1.40
+requests>=2.31
+
+# ---- 配置与工具 ----
+pyyaml>=6.0
+tqdm>=4.66
+huggingface-hub>=0.23
+
+# ---- Web 后端（FastAPI + SSE 进度推送）----
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sse-starlette>=2.1
+
+# ---- 可选：whisper.cpp 后端（CPU 降级路径）----
+# pywhispercpp>=1.2
