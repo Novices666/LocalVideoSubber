@@ -69,6 +69,11 @@ export interface JobSummary {
   error: string;
 }
 
+export interface JobDetail extends JobSummary {
+  logs: string[];
+  result: Record<string, unknown>;
+}
+
 export interface StyleProfile {
   name: string;
   font_name: string;
@@ -193,6 +198,7 @@ export const api = {
     }),
 
   jobs: () => req<{ jobs: JobSummary[] }>("/api/jobs"),
+  job: (id: string) => req<JobDetail>(`/api/jobs/${id}`),
 
   transcribe: (body: TranscribeRequest) =>
     req<{ job_id: string }>("/api/jobs/transcribe", {

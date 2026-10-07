@@ -172,9 +172,13 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
                 lo = 0.15 + (0.63 * i / len(chunks))
                 hi = 0.15 + (0.63 * (i + 1) / len(chunks))
                 asr_opts.progress_span = (lo, hi)
-                ctx.log(f"第 {i + 1}/{len(chunks)} 段")
+                ctx.log(f"第 {i + 1}/{len(chunks)} 段（{chunk.start:.0f}s ~ {chunk.end:.0f}s）")
+                ctx.log(f"正在切分第 {i + 1}/{len(chunks)} 段音频…")
+                ctx.progress(lo, f"切分第 {i + 1}/{len(chunks)} 段")
                 piece = slice_audio(wav, chunk, work / "chunks", cancel=ctx.cancel)
+                ctx.log(f"第 {i + 1}/{len(chunks)} 段切分完成，开始转录")
                 res = _transcribe_one(engine, piece, asr_opts, ctx)
+                ctx.log(f"第 {i + 1}/{len(chunks)} 段转录完成（{len(res.segments)} 段）")
                 if not detected_lang:
                     detected_lang = res.language
                 for s in res.segments:
@@ -246,8 +250,22 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
 
 
 def _transcribe_one(engine, wav: Path, opts: AsrOptions, ctx: JobContext):
+    """转录单段音频。把引擎的阶段性 message 也写进日志（进度性消息节流），避免日志停在某一步。"""
+    last_msg = [""]
+    last_progress_log = [0.0]
+
+    def on_progress(p: float, m: str = "") -> None:
+        ctx.progress(p, m)
+        if m and m != last_msg[0]:
+            now = time.time()
+            is_progress = ("转录 " in m) or ("x ·" in m) or ("剩约" in m)
+            if not is_progress or now - last_progress_log[0] >= 3.0:
+                ctx.log(m)
+                last_progress_log[0] = now
+            last_msg[0] = m
+
     try:
-        return engine.transcribe(wav, progress=lambda p, m: ctx.progress(p, m))
+        return engine.transcribe(wav, progress=on_progress)
     except (Cancelled, TaskCancelled):
         raise TaskCancelled()
     except AsrError:

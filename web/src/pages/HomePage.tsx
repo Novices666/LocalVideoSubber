@@ -4,7 +4,8 @@ import { CheckCircle2, XCircle, AlertTriangle, RefreshCw, Mic, Languages, Clappe
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { api, type CheckResult, type JobSummary } from "@/lib/api";
+import { api, type CheckResult, type JobSummary, type JobDetail } from "@/lib/api";
+import { cn } from "@/lib/utils";
 
 function StatusIcon({ ok, level }: { ok: boolean; level: string }) {
   if (ok) return <CheckCircle2 className="h-4 w-4 text-accent" aria-hidden />;
@@ -63,6 +64,7 @@ const KIND_CN: Record<string, string> = {
 export function HomePage() {
   const [check, setCheck] = useState<CheckResult | null>(null);
   const [jobs, setJobs] = useState<JobSummary[]>([]);
+  const [selectedJob, setSelectedJob] = useState<JobDetail | null>(null);
   const [checking, setChecking] = useState(false);
 
   const runCheck = useCallback(async () => {
@@ -74,14 +76,30 @@ export function HomePage() {
     }
   }, []);
 
-  const loadJobs = useCallback(async () => {
+  const selectJob = useCallback(async (id: string) => {
     try {
-      const { jobs } = await api.jobs();
-      setJobs(jobs.slice(0, 8));
+      const detail = await api.job(id);
+      setSelectedJob(detail);
     } catch {
       /* ignore */
     }
   }, []);
+
+  const loadJobs = useCallback(async () => {
+    try {
+      const { jobs } = await api.jobs();
+      setJobs(jobs.slice(0, 8));
+      // 若选中的任务状态更新了，同步刷新详情
+      if (selectedJob) {
+        const fresh = jobs.find((j) => j.id === selectedJob.id);
+        if (fresh && fresh.status !== selectedJob.status) {
+          selectJob(fresh.id);
+        }
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [selectedJob, selectJob]);
 
   useEffect(() => {
     runCheck();
@@ -127,7 +145,16 @@ export function HomePage() {
             ) : (
               <div className="space-y-1">
                 {jobs.map((j) => (
-                  <div key={j.id} className="flex items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted/50">
+                  <button
+                    key={j.id}
+                    onClick={() => selectJob(j.id)}
+                    className={cn(
+                      "flex w-full items-center gap-3 rounded-md px-2 py-1.5 text-left transition-colors cursor-pointer",
+                      selectedJob?.id === j.id
+                        ? "bg-primary/10"
+                        : "hover:bg-muted/50",
+                    )}
+                  >
                     <span className="tabular-nums text-xs text-muted-foreground">{j.id}</span>
                     <Badge variant="secondary">{KIND_CN[j.kind] ?? j.kind}</Badge>
                     <span className="min-w-0 flex-1 truncate text-sm">{j.title}</span>
@@ -147,8 +174,30 @@ export function HomePage() {
                     <span className="tabular-nums text-xs text-muted-foreground">
                       {Math.round(j.progress * 100)}%
                     </span>
-                  </div>
+                  </button>
                 ))}
+              </div>
+            )}
+            {selectedJob && (
+              <div className="mt-3 border-t border-border pt-3">
+                <div className="mb-1 text-sm">
+                  <span className="font-medium">{selectedJob.id}</span> · {selectedJob.title}
+                </div>
+                <div className="mb-2 text-xs text-muted-foreground">
+                  {selectedJob.status_tag} · {selectedJob.stage || "-"} · {Math.round(selectedJob.progress * 100)}% · 耗时 {selectedJob.elapsed.toFixed(0)}s
+                </div>
+                {selectedJob.error && (
+                  <div className="mb-2 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
+                    {selectedJob.error}
+                  </div>
+                )}
+                {selectedJob.logs && selectedJob.logs.length > 0 && (
+                  <div className="scroll-area max-h-40 overflow-y-auto rounded-md border border-border bg-muted/40 p-2 font-mono text-xs leading-relaxed">
+                    {selectedJob.logs.slice(-50).map((line, i) => (
+                      <div key={i} className="break-anywhere">{line}</div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

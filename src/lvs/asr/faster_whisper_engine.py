@@ -71,6 +71,9 @@ class FasterWhisperEngine(AsrEngine):
     def _load(self, progress: ProgressFn | None = None) -> None:
         if self._model is not None:
             return
+        # 取消检查：模型加载前
+        if self.options.cancel_token is not None and self.options.cancel_token.is_set():
+            raise TranscriptionCancelled()
         try:
             from faster_whisper import WhisperModel
         except ImportError as exc:  # pragma: no cover
@@ -173,13 +176,21 @@ class FasterWhisperEngine(AsrEngine):
         audio_path: str | Path,
         progress: ProgressFn | None = None,
     ) -> AsrResult:
+        opts = self.options
+        # 取消检查：加载模型前
+        if opts.cancel_token is not None and opts.cancel_token.is_set():
+            raise TranscriptionCancelled()
+
         self._load(progress)
         assert self._model is not None
 
-        opts = self.options
         audio_path = Path(audio_path)
         if not audio_path.exists():
             raise AsrError(f"音频文件不存在: {audio_path}")
+
+        # 取消检查：模型加载后
+        if opts.cancel_token is not None and opts.cancel_token.is_set():
+            raise TranscriptionCancelled()
 
         kwargs: dict = dict(
             language=opts.language,
@@ -207,6 +218,9 @@ class FasterWhisperEngine(AsrEngine):
             kwargs["vad_parameters"] = _clean_vad(opts.vad_parameters)
 
         # faster-whisper 的 hotwords 在旧版本不存在，做兼容剔除
+        # 注意：transcribe() 同步执行 VAD 检测 + 音频编码，此阶段无法中断，但前后都检查取消
+        if progress:
+            progress(0.0, "VAD 检测与音频编码中…")
         try:
             iterator, info = self._model.transcribe(str(audio_path), **kwargs)
         except TypeError as exc:
@@ -219,6 +233,10 @@ class FasterWhisperEngine(AsrEngine):
             raise
         except Exception as exc:  # noqa: BLE001
             raise AsrError(f"转录失败: {exc}") from exc
+
+        # 取消检查：VAD/编码完成后（若这期间点了取消，立即生效）
+        if opts.cancel_token is not None and opts.cancel_token.is_set():
+            raise TranscriptionCancelled()
 
         total = float(getattr(info, "duration", 0.0) or 0.0)
         span_lo, span_hi = opts.progress_span

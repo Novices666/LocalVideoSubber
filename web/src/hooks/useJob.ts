@@ -25,6 +25,25 @@ export function useJob() {
   });
   const closeRef = useRef<(() => void) | null>(null);
 
+  const subscribe = useCallback(
+    (jobId: string) => {
+      const close = subscribeJobEvents(
+        jobId,
+        (progress) => setState((s) => ({ ...s, progress })),
+        (done) => {
+          setState((s) => ({ ...s, running: false, done }));
+          closeRef.current = null;
+          refresh();
+        },
+        () => {
+          setState((s) => ({ ...s, running: false }));
+        },
+      );
+      closeRef.current = close;
+    },
+    [refresh],
+  );
+
   const start = useCallback(
     async (submit: () => Promise<{ job_id: string }>) => {
       closeRef.current?.();
@@ -32,19 +51,7 @@ export function useJob() {
       try {
         const { job_id } = await submit();
         setState((s) => ({ ...s, jobId: job_id }));
-        const close = subscribeJobEvents(
-          job_id,
-          (progress) => setState((s) => ({ ...s, progress })),
-          (done) => {
-            setState((s) => ({ ...s, running: false, done }));
-            closeRef.current = null;
-            refresh();
-          },
-          () => {
-            setState((s) => ({ ...s, running: false }));
-          },
-        );
-        closeRef.current = close;
+        subscribe(job_id);
       } catch (e) {
         setState({
           running: false,
@@ -55,7 +62,17 @@ export function useJob() {
         });
       }
     },
-    [refresh],
+    [subscribe],
+  );
+
+  // 恢复一个已在运行的任务（刷新页面后重新连接其 SSE）
+  const resume = useCallback(
+    (jobId: string) => {
+      closeRef.current?.();
+      setState({ running: true, jobId, progress: null, done: null, error: null });
+      subscribe(jobId);
+    },
+    [subscribe],
   );
 
   const cancel = useCallback(async () => {
@@ -67,5 +84,5 @@ export function useJob() {
     }
   }, [state.jobId]);
 
-  return { state, start, cancel };
+  return { state, start, resume, cancel };
 }

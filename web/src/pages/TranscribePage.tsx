@@ -33,7 +33,7 @@ const LANGS = [
 
 export function TranscribePage() {
   const { workspace, refresh } = useWorkspace();
-  const { state, start, cancel } = useJob();
+  const { state, start, resume, cancel } = useJob();
   const { load, save, saving } = useConfig();
 
   const [asrOptions, setAsrOptions] = useState<string[]>([]);
@@ -62,6 +62,8 @@ export function TranscribePage() {
     try {
       const m = await api.models();
       setAsrOptions(m.asr.map((x) => x.value));
+      // 若还没选模型，自动选中第一个，避免每次打开都要手动选
+      setModel((cur) => cur || (m.asr[0]?.value ?? ""));
     } finally {
       setRefreshingModels(false);
     }
@@ -82,6 +84,13 @@ export function TranscribePage() {
       setMaxLatin(Number(getNested(v, "segment.max_chars_latin", 42)));
       setMinDur(Number(getNested(v, "segment.min_duration", 0.8)));
       setMaxDur(Number(getNested(v, "segment.max_duration", 8.0)));
+    });
+    // 刷新页面后，若后端有运行中的转录任务，自动恢复连接与进度显示
+    api.jobs().then(({ jobs }) => {
+      const running = jobs.find(
+        (j) => j.kind === "transcribe" && (j.status === "运行中" || j.status === "排队中"),
+      );
+      if (running) resume(running.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -129,6 +138,7 @@ export function TranscribePage() {
   async function savePage() {
     await save({
       "asr.engine": engine,
+      "asr.model": model || undefined,
       "asr.language": language,
       "asr.task": task,
       "asr.device": device,
