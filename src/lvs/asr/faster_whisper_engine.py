@@ -62,38 +62,15 @@ def _wav_duration(path: Path) -> float:
 
 
 def _setup_cuda_dll_path() -> None:
-    """让 cuBLAS 可被 ctranslate2 加载。
+    """确保 cuBLAS 已预加载（双保险）。
 
-    ctranslate2 的 C++ 层（ctranslate2.dll）在自身目录搜索依赖 DLL（它自带
-    cudnn64_9.dll 但没有 cublas）。而 cuBLAS 在 nvidia 包的 bin 目录、不在系统
-    PATH，导致长音频特征提取时报 "cublas64_12.dll is not found or cannot be
-    loaded"。这里把 nvidia 包的 DLL 复制到 ctranslate2 目录（幂等），并加入
-    DLL 搜索目录作为双保险。
+    主入口在 config.py 模块顶部（import ctranslate2 之前）已调用
+    preload_cuda_dlls()。这里再调一次作双保险（幂等，已加载则命中），
+    覆盖直接 import lvs.asr 而不经过 config 的场景。
     """
-    try:
-        import glob
-        import os
-        import shutil
-        import sysconfig
+    from ..cuda_dll import preload_cuda_dlls
 
-        import ctranslate2
-
-        site = sysconfig.get_paths()["purelib"]
-        ct2_dir = os.path.dirname(ctranslate2.__file__)
-        for dll_dir in glob.glob(os.path.join(site, "nvidia", "*", "bin")):
-            try:
-                os.add_dll_directory(dll_dir)
-            except (OSError, AttributeError):
-                pass
-            for dll in glob.glob(os.path.join(dll_dir, "*.dll")):
-                dst = os.path.join(ct2_dir, os.path.basename(dll))
-                if not os.path.exists(dst):
-                    try:
-                        shutil.copy2(dll, dst)
-                    except OSError:
-                        pass
-    except Exception:  # noqa: BLE001
-        pass
+    preload_cuda_dlls()
 
 
 class FasterWhisperEngine(AsrEngine):

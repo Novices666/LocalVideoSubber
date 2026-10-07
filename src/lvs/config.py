@@ -18,6 +18,13 @@ from typing import Any
 
 import yaml
 
+# 关键：在任何 import ctranslate2 之前预加载 CUDA DLL（见 cuda_dll.py 说明）。
+# config.py 是几乎所有入口第一个 import 的 lvs 模块，这里预加载可保证
+# check_cuda / faster_whisper 里的 import ctranslate2 都命中已加载的 DLL。
+from .cuda_dll import preload_cuda_dlls
+
+preload_cuda_dlls()
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.yaml"
 EXAMPLE_CONFIG_PATH = PROJECT_ROOT / "config.example.yaml"
