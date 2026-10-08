@@ -33,7 +33,7 @@ export function RenderPage() {
 
   const [styles, setStyles] = useState<StyleProfile[]>([]);
   const [mode, setMode] = useState("burn");
-  const [styleProfile, setStyleProfile] = useState("标准样式");
+  const [styleProfile, setStyleProfile] = useState("");
   const [displayMode, setDisplayMode] = useState("both");
   const [encoder, setEncoder] = useState("auto");
   const [crf, setCrf] = useState(20);
@@ -44,7 +44,11 @@ export function RenderPage() {
   useEffect(() => {
     api.styles().then((s) => {
       setStyles(s.styles);
-      if (s.styles.length > 0 && !styleProfile) setStyleProfile(s.styles[0].name);
+      // 当前选中不在列表里（如初始空值、或样式被删）则回退到第一个
+      setStyleProfile((cur) => {
+        if (cur && s.styles.some((x) => x.name === cur)) return cur;
+        return s.styles.length > 0 ? s.styles[0].name : "";
+      });
     });
     api.workspace().then((ws) => {
       if (ws.video) setVideo(ws.video);
