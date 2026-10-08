@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/select";
 import { ProgressPanel } from "@/components/ProgressPanel";
 import { DragDrop } from "@/components/DragDrop";
+import { CueTable } from "@/components/CueTable";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/Toast";
 import { useJob } from "@/hooks/useJob";
 import { useConfig } from "@/hooks/useConfig";
@@ -293,7 +295,7 @@ export function RenderPage() {
         </div>
       </div>
 
-      {/* 右栏：进度 + 预览 */}
+      {/* 右栏：进度 + 素材/结果 */}
       <div className="flex min-w-0 flex-1 flex-col gap-4 p-4">
         <Card className="h-64 shrink-0">
           <CardHeader className="pb-2">
@@ -306,52 +308,94 @@ export function RenderPage() {
 
         <Card className="min-h-0 flex-1">
           <CardHeader className="pb-2">
-            <CardTitle>结果预览</CardTitle>
+            <CardTitle>素材与结果</CardTitle>
             <CardDescription>
-              {workspace?.cue_count ? `当前字幕 ${workspace.cue_count} 条` : "无字幕"}
+              渲染前确认字幕与视频，渲染后查看产物
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[calc(100%-4rem)]">
-            {outputVideo && state.done?.result?.output ? (
-              <video
-                key={String(state.done.result.output)}
-                src={`/api/media/file?path=${encodeURIComponent(String(state.done.result.output))}`}
-                controls
-                className="h-full w-full rounded-md border border-border bg-black"
-              />
-            ) : state.done?.result?.mode === "export" ? (
-              <div className="scroll-area h-full space-y-2 overflow-y-auto">
-                <div className="text-sm">导出完成，共 {Array.isArray(state.done.result.files) ? state.done.result.files.length : 0} 个文件：</div>
-                {Array.isArray(state.done.result.files) &&
-                  state.done.result.files.map((f) => (
-                    <a
-                      key={String(f)}
-                      href={`/api/media/file?path=${encodeURIComponent(String(f))}`}
-                      download
-                      className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm transition-colors hover:bg-muted cursor-pointer"
-                    >
-                      <span className="break-anywhere">{String(f).split(/[\\/]/).pop()}</span>
-                      <Download className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-                    </a>
-                  ))}
-                <div className="text-xs text-muted-foreground">
-                  点击文件名下载。文件也保存在 output 目录，可用播放器外挂加载。
-                </div>
-              </div>
-            ) : state.done?.result?.output ? (
-              <div className="space-y-2">
-                <div className="text-sm">
-                  产物：<span className="break-anywhere font-medium">{String(state.done.result.output)}</span>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  软封装与硬烧录产物保存在 output 目录，播放器可直接打开预览。
-                </div>
-              </div>
-            ) : (
-              <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-                渲染完成后，这里显示产物信息。
-              </div>
-            )}
+          <CardContent className="flex h-[calc(100%-4rem)] flex-col">
+            <Tabs defaultValue="subtitle" className="flex min-h-0 flex-1 flex-col">
+              <TabsList>
+                <TabsTrigger value="subtitle">字幕（{workspace?.cue_count ?? 0}）</TabsTrigger>
+                <TabsTrigger value="video">视频</TabsTrigger>
+                <TabsTrigger value="result">结果预览</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="subtitle" className="min-h-0 flex-1 overflow-hidden">
+                <CueTable
+                  cues={workspace?.cues ?? []}
+                  editable={{ start: false, end: false, text: false, translation: false }}
+                />
+              </TabsContent>
+
+              <TabsContent value="video" className="min-h-0 flex-1 overflow-hidden">
+                {video ? (
+                  <video
+                    key={video}
+                    src={`/api/media/file?path=${encodeURIComponent(video)}`}
+                    controls
+                    className="h-full w-full rounded-md border border-border bg-black"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    尚未选择视频。在左侧拖入或填写视频路径。
+                  </div>
+                )}
+              </TabsContent>
+
+              <TabsContent value="result" className="min-h-0 flex-1 overflow-hidden">
+                {outputVideo && state.done?.result?.output ? (
+                  <video
+                    key={String(state.done.result.output)}
+                    src={`/api/media/file?path=${encodeURIComponent(String(state.done.result.output))}`}
+                    controls
+                    className="h-full w-full rounded-md border border-border bg-black"
+                  >
+                    {state.done.result.preview_subtitle ? (
+                      <track
+                        kind="subtitles"
+                        src={`/api/media/file?path=${encodeURIComponent(String(state.done.result.preview_subtitle))}`}
+                        srcLang="zh"
+                        label="字幕"
+                        default
+                      />
+                    ) : null}
+                  </video>
+                ) : state.done?.result?.mode === "export" ? (
+                  <div className="scroll-area h-full space-y-2 overflow-y-auto">
+                    <div className="text-sm">导出完成，共 {Array.isArray(state.done.result.files) ? state.done.result.files.length : 0} 个文件：</div>
+                    {Array.isArray(state.done.result.files) &&
+                      state.done.result.files.map((f) => (
+                        <a
+                          key={String(f)}
+                          href={`/api/media/file?path=${encodeURIComponent(String(f))}`}
+                          download
+                          className="flex items-center justify-between rounded-md border border-border bg-muted/40 px-3 py-2 text-sm transition-colors hover:bg-muted cursor-pointer"
+                        >
+                          <span className="break-anywhere">{String(f).split(/[\\/]/).pop()}</span>
+                          <Download className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                        </a>
+                      ))}
+                    <div className="text-xs text-muted-foreground">
+                      点击文件名下载。文件也保存在 output 目录，可用播放器外挂加载。
+                    </div>
+                  </div>
+                ) : state.done?.result?.output ? (
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      产物：<span className="break-anywhere font-medium">{String(state.done.result.output)}</span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      软封装与硬烧录产物保存在 output 目录，播放器可直接打开预览。
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
+                    渲染完成后，这里显示产物信息。
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>

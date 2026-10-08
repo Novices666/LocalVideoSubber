@@ -495,10 +495,18 @@ def run_render(job: Job, ctx: JobContext) -> dict[str, Any]:
             )
         except Cancelled:
             raise TaskCancelled()
+        # 额外导出一份 vtt，供浏览器预览（<video> 不支持内挂 ass/srt 字幕轨）
+        preview_vtt = out_dir / f"{stem}.subbed.vtt"
+        try:
+            save_subtitle(cues, preview_vtt, mode=ropts.display_mode, order=ropts.order)
+        except Exception as exc:  # noqa: BLE001
+            ctx.log(f"预览字幕导出失败（不影响成品）: {exc}", "warn")
+            preview_vtt = None
         ctx.log(f"输出: {res.output.name} ({res.size_mb} MB)")
         ctx.progress(1.0, res.note)
         return {
             "mode": "soft", "output": str(res.output),
+            "preview_subtitle": str(preview_vtt) if preview_vtt else "",
             "size_mb": res.size_mb, "note": res.note,
         }
 
