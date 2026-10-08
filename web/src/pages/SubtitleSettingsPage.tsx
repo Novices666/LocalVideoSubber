@@ -9,7 +9,9 @@ import { Slider } from "@/components/ui/slider";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -45,6 +47,7 @@ export function SubtitleSettingsPage() {
   const [selected, setSelected] = useState<string>("");
   const [draft, setDraft] = useState<StyleProfile>({ ...EMPTY });
   const [refreshing, setRefreshing] = useState(false);
+  const [sysFonts, setSysFonts] = useState<string[]>([]);
 
   async function load() {
     const s = await api.styles();
@@ -59,6 +62,7 @@ export function SubtitleSettingsPage() {
         setDraft({ ...s[0] });
       }
     });
+    api.fonts().then((r) => setSysFonts(r.fonts)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -220,12 +224,25 @@ export function SubtitleSettingsPage() {
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
-                    {FONTS.map((f) => (
-                      <SelectItem key={f} value={f}>
-                        {f}
-                      </SelectItem>
-                    ))}
+                  <SelectContent className="max-h-72">
+                    <SelectGroup>
+                      <SelectLabel>推荐</SelectLabel>
+                      {FONTS.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                    <SelectGroup>
+                      <SelectLabel>系统字体</SelectLabel>
+                      {sysFonts
+                        .filter((f) => !FONTS.includes(f))
+                        .map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f}
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
