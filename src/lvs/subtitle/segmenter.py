@@ -126,12 +126,9 @@ def _split_with_words(seg: Segment, opts: SegmentOptions) -> list[Cue]:
             too_long = would > limit
             too_slow = gap_before >= opts.max_gap
             too_long_time = (cur[-1].end - cur[0].start) >= opts.max_duration
-            # 已经过半且有子句标点 -> 提前断，读起来更自然
-            soft_break = (
-                _ends_clause(cur[-1].text)
-                and cur_w >= limit * 0.62
-            )
-            if ends_sentence or too_long or too_slow or too_long_time or soft_break:
+            # 只在句末标点 / 超长 / 停顿 / 超时处断，不在逗号处提前断，
+            # 保证一句话完整（避免 "you know what you're in for today," 被逗号切开）
+            if ends_sentence or too_long or too_slow or too_long_time:
                 chunks.append(cur)
                 cur, cur_w = [], 0
 
@@ -161,7 +158,9 @@ def _ends_sentence(text: str) -> bool:
         return False
     if t[-1] in _SENT_END:
         return True
-    return bool(_SENT_END_LATIN.search(t))
+    # 英文句末：以 . ! ? 结尾（含引号/括号）即判为句末，不要求后面有空格。
+    # whisper 词级时间戳里标点附着在词尾（"20."、"you?"），词本身无尾随空格。
+    return bool(re.search(r"[.!?]['\"\)\]]*$", t))
 
 
 def _ends_clause(text: str) -> bool:
