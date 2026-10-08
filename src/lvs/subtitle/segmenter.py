@@ -126,11 +126,21 @@ def _split_with_words(seg: Segment, opts: SegmentOptions) -> list[Cue]:
             too_long = would > limit
             too_slow = gap_before >= opts.max_gap
             too_long_time = (cur[-1].end - cur[0].start) >= opts.max_duration
-            # 只在句末标点 / 超长 / 停顿 / 超时处断，不在逗号处提前断，
+            # 只在句末标点 / 停顿 / 超时处断，不在逗号处提前断，
             # 保证一句话完整（避免 "you know what you're in for today," 被逗号切开）
-            if ends_sentence or too_long or too_slow or too_long_time:
+            if ends_sentence or too_slow or too_long_time:
                 chunks.append(cur)
                 cur, cur_w = [], 0
+            elif too_long:
+                # 超长时优先回退到最近的逗号/子句标点处切，保持自然断点
+                cut = _last_clause_cut(cur)
+                if cut > 0:
+                    chunks.append(cur[:cut])
+                    cur = cur[cut:]
+                    cur_w = sum(_display_width(x.text.strip()) for x in cur)
+                else:
+                    chunks.append(cur)
+                    cur, cur_w = [], 0
 
         cur.append(w)
         cur_w += wwidth
@@ -166,6 +176,17 @@ def _ends_sentence(text: str) -> bool:
 def _ends_clause(text: str) -> bool:
     t = text.rstrip()
     return bool(t) and t[-1] in _CLAUSE
+
+
+def _last_clause_cut(words: list[Word]) -> int:
+    """返回最近一个以子句标点结尾的词之后的位置（用于超长回退切分）。
+
+    无子句标点时返回 0，表示无法自然回退，只能硬切。
+    """
+    for i in range(len(words) - 1, 0, -1):
+        if _ends_clause(words[i].text):
+            return i + 1
+    return 0
 
 
 def _join_words(pieces: list[str]) -> str:
