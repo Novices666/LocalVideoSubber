@@ -237,6 +237,8 @@ export const api = {
       method: "POST",
     }),
 
+  fonts: () => req<{ fonts: string[] }>("/api/fonts"),
+
   config: () =>
     req<{ path: string; model_root: string; output_dir: string; values: Record<string, unknown>; api_key_masked: string }>(
       "/api/config",

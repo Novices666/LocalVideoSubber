@@ -52,9 +52,10 @@ export function SettingsPage() {
   const [batch, setBatch] = useState(25);
   const [context, setContext] = useState(3);
   const [concurrency, setConcurrency] = useState(1);
-  const [outDir, setOutDir] = useState("./output");
+  const [outDir, setOutDir] = useState("./workspace");
   const [keepIntermediate, setKeepIntermediate] = useState(true);
   const [fontName, setFontName] = useState("Microsoft YaHei");
+  const [fontOptions, setFontOptions] = useState<string[]>([]);
   const [fontSize, setFontSize] = useState(42);
   const [marginV, setMarginV] = useState(40);
   const [encoder, setEncoder] = useState("auto");
@@ -81,7 +82,7 @@ export function SettingsPage() {
       setBatch(Number(getNested(v, "translate.batch_size", 25)));
       setContext(Number(getNested(v, "translate.context_size", 3)));
       setConcurrency(Number(getNested(v, "translate.concurrency", 1)));
-      setOutDir(String(getNested(v, "jobs.output_dir", "./output")));
+      setOutDir(String(getNested(v, "jobs.output_dir", "./workspace")));
       setKeepIntermediate(Boolean(getNested(v, "jobs.keep_intermediate", true)));
       setFontName(String(getNested(v, "render.style.font_name", "Microsoft YaHei")));
       setFontSize(Number(getNested(v, "render.style.font_size", 42)));
@@ -96,6 +97,7 @@ export function SettingsPage() {
   useEffect(() => {
     load();
     refreshAsrModels();
+    api.fonts().then((r) => setFontOptions(r.fonts)).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -325,8 +327,11 @@ export function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-1.5">
-                  <Label>输出目录</Label>
+                  <Label>工作目录</Label>
                   <Input value={outDir} onChange={(e) => setOutDir(e.target.value)} />
+                  <p className="text-xs text-muted-foreground">
+                    按视频分组的 workspace：upload / transcribe / translate / burn / output
+                  </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <Label htmlFor="keep">保留中间产物（音频、分段字幕）</Label>
@@ -340,7 +345,7 @@ export function SettingsPage() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {["auto", "h264_nvenc", "hevc_nvenc", "libx264", "libx265"].map((e) => (
+                        {["auto", "h264_nvenc", "hevc_nvenc", "h264_qsv", "h264_amf", "libx264", "libx265"].map((e) => (
                           <SelectItem key={e} value={e}>
                             {e}
                           </SelectItem>
@@ -358,7 +363,18 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>默认字体</Label>
-                  <Input value={fontName} onChange={(e) => setFontName(e.target.value)} />
+                  <Select value={fontName} onValueChange={setFontName}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="选择字体" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-64">
+                      {fontOptions.map((f) => (
+                        <SelectItem key={f} value={f}>
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">

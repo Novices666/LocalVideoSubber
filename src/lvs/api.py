@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import shutil
 import time
 from pathlib import Path
@@ -79,6 +80,34 @@ def _dir_size(p: Path) -> int:
             except OSError:
                 pass
     return total
+
+
+def _list_system_fonts() -> list[str]:
+    """列出系统已安装字体（Windows 注册表）。失败回退常用字体。"""
+    fallback = ["Microsoft YaHei", "SimHei", "SimSun", "Arial", "Segoe UI", "Noto Sans SC"]
+    try:
+        import winreg
+
+        key = winreg.OpenKey(
+            winreg.HKEY_LOCAL_MACHINE,
+            r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts",
+        )
+        names: set[str] = set()
+        i = 0
+        while True:
+            try:
+                name, _, _ = winreg.EnumValue(key, i)
+                i += 1
+            except OSError:
+                break
+            # 去掉 "(TrueType)" / "(OpenType)" 后缀
+            clean = re.sub(r"\s*\((TrueType|OpenType)\)$", "", name, flags=re.I).strip()
+            if clean:
+                names.add(clean)
+        winreg.CloseKey(key)
+        return sorted(names) or fallback
+    except Exception:  # noqa: BLE001
+        return fallback
 
 
 # --------------------------------------------------------------------------
@@ -326,6 +355,11 @@ def create_app() -> FastAPI:
                             shutil.rmtree(jdir)
                             removed += 1
         return {"ok": True, "removed": removed, "freed": freed}
+
+    @app.get("/api/fonts")
+    def fonts() -> dict[str, Any]:
+        """列出系统已安装字体，供字幕字体下拉选择。"""
+        return {"fonts": _list_system_fonts()}
 
     # ==============================================================
     # LLM 连接测试
