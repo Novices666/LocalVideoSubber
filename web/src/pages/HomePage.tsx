@@ -113,6 +113,28 @@ export function HomePage() {
 
   return (
     <div className="flex h-full flex-col gap-4 overflow-y-auto p-6">
+      <div>
+        <h2 className="mb-2 text-base font-medium text-foreground">开始工作</h2>
+        <div className="grid grid-cols-5 gap-3">
+          {QUICK_LINKS.map(({ to, label, desc, icon: Icon }) => (
+            <Link key={to} to={to} className="group">
+              <Card className="transition-[border-color,box-shadow] duration-200 hover:border-primary/50 hover:shadow-md">
+                <CardContent className="p-4">
+                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </div>
+                  <div className="text-sm font-medium group-hover:text-primary">{label}</div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">{desc}</span>
+                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-display text-xl font-semibold tracking-tight">主页</h1>
@@ -205,28 +227,6 @@ export function HomePage() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      <div>
-        <h2 className="mb-2 text-base font-medium text-foreground">开始工作</h2>
-        <div className="grid grid-cols-5 gap-3">
-          {QUICK_LINKS.map(({ to, label, desc, icon: Icon }) => (
-            <Link key={to} to={to} className="group">
-              <Card className="transition-[border-color,box-shadow] duration-200 hover:border-primary/50 hover:shadow-md">
-                <CardContent className="p-4">
-                  <div className="mb-2 flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-                    <Icon className="h-4 w-4" aria-hidden />
-                  </div>
-                  <div className="text-sm font-medium group-hover:text-primary">{label}</div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-muted-foreground">{desc}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" aria-hidden />
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
       </div>
     </div>
   );
