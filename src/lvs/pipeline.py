@@ -245,7 +245,8 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
 
         # 4.1 说话人分离（可选）：按说话人切换点切分分段，实现自动换行
         if cfg.get("asr.speaker_diarization", False):
-            ctx.log("说话人分离：开始分析…")
+            est = info.duration / 8.0  # diarize RTF 约 0.12
+            ctx.log(f"说话人分离：开始分析（约 {est:.0f} 秒，CPU）…")
             diar = run_diarization(str(wav))
             if diar.ok:
                 bounds = speaker_boundaries(diar.turns)
@@ -253,7 +254,7 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
                 segments = split_segments_by_speakers(segments, bounds)
                 ctx.log(
                     f"说话人分离：{diar.num_speakers} 人，"
-                    f"{len(bounds)} 个切换点，{before} -> {len(segments)} 段"
+                    f"{len(bounds)} 个有效切换点，{before} -> {len(segments)} 段"
                 )
             else:
                 ctx.log("说话人分离：未检测到有效说话人，跳过", "warn")
