@@ -54,41 +54,14 @@ def run_diarization(audio_path: str) -> DiarizationResult:
         return DiarizationResult()
 
 
-def speaker_boundaries(
-    turns: list[SpeakerTurn], min_segment: float = 1.5, merge_gap: float = 0.3
-) -> list[float]:
-    """返回说话人切换时间点。合并标签抖动 + 过滤过短片段。
-
-    diarize 的 speaker 标签会在短片段上抖动（同一人被分成多个 label，
-    或犹豫词 "So"/"Oh" 被误标为另一人），导致字幕被过度切碎。这里：
-    1. 合并相邻同 speaker、间隔 < merge_gap 的片段
-    2. 只保留两侧片段都 >= min_segment 的切换点（字幕按段落切，不按词切）
-    """
-    turns = sorted(turns, key=lambda x: x.start)
-
-    # 1. 合并相邻同 speaker 片段（标签抖动）
-    merged: list[SpeakerTurn] = []
-    for t in turns:
-        if (
-            merged
-            and merged[-1].speaker == t.speaker
-            and t.start - merged[-1].end < merge_gap
-        ):
-            merged[-1].end = max(merged[-1].end, t.end)
-        else:
-            merged.append(SpeakerTurn(t.start, t.end, t.speaker))
-
-    # 2. 只保留两侧片段都足够长的切换点
+def speaker_boundaries(turns: list[SpeakerTurn]) -> list[float]:
+    """返回说话人切换时间点（秒），按时间排序去重。"""
     bounds: list[float] = []
-    for i in range(1, len(merged)):
-        prev, cur = merged[i - 1], merged[i]
-        if prev.speaker == cur.speaker:
-            continue
-        if (
-            (prev.end - prev.start) >= min_segment
-            and (cur.end - cur.start) >= min_segment
-        ):
-            bounds.append(cur.start)
+    prev: str | None = None
+    for t in sorted(turns, key=lambda x: x.start):
+        if prev is not None and t.speaker != prev:
+            bounds.append(t.start)
+        prev = t.speaker
     return sorted(set(round(b, 2) for b in bounds))
 
 
