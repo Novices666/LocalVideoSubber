@@ -75,7 +75,6 @@ class TranscribeRequest(BaseModel):
     vad_filter: bool = True
     initial_prompt: str = ""
     seg_opts: dict[str, Any] = Field(default_factory=dict)
-    speaker_diarization: bool = False
 
 
 class TranslateRequest(BaseModel):
@@ -300,7 +299,6 @@ def create_app() -> FastAPI:
             "asr.compute_type": req.compute_type,
             "asr.vad_filter": req.vad_filter,
             "asr.initial_prompt": req.initial_prompt or None,
-            "asr.speaker_diarization": req.speaker_diarization,
         }
         payload = {
             "cfg": _cfg(),

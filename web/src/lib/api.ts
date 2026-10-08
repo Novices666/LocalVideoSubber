@@ -109,7 +109,6 @@ export interface TranscribeRequest {
   vad_filter?: boolean;
   initial_prompt?: string;
   seg_opts?: Record<string, unknown>;
-  speaker_diarization?: boolean;
 }
 
 export interface TranslateRequest {
