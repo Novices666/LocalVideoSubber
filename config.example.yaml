@@ -115,6 +115,10 @@ render:
   burn_preset: p5         # NVENC: p1(最快)~p7(最慢)；x264: medium
   # 软字幕默认封装格式: mkv | mp4
   soft_container: mkv
+  # 默认样式规范（styles/*.json 的名称，空则用第一个）
+  style_profile: ""
+  # 默认字幕内容: both（双语）/ target（仅译文）/ source（仅原文）
+  display_mode: both
 
   # ASS 样式
   style:

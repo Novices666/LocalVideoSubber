@@ -42,21 +42,22 @@ export function RenderPage() {
   const [importPath, setImportPath] = useState("");
 
   useEffect(() => {
-    api.styles().then((s) => {
+    // 并行拉样式与配置，样式优先读 config 里保存的（失效则回退第一个）
+    Promise.all([api.styles(), load()]).then(([s, v]) => {
       setStyles(s.styles);
-      // 当前选中不在列表里（如初始空值、或样式被删）则回退到第一个
+      const savedProfile = String(getNested(v, "render.style_profile", "") ?? "");
       setStyleProfile((cur) => {
+        if (savedProfile && s.styles.some((x) => x.name === savedProfile)) return savedProfile;
         if (cur && s.styles.some((x) => x.name === cur)) return cur;
         return s.styles.length > 0 ? s.styles[0].name : "";
       });
-    });
-    api.workspace().then((ws) => {
-      if (ws.video) setVideo(ws.video);
-    });
-    load().then((v) => {
+      setDisplayMode(String(getNested(v, "render.display_mode", "both")));
       setEncoder(String(getNested(v, "render.burn_encoder", "auto")));
       setCrf(Number(getNested(v, "render.burn_crf", 20)));
       setContainer(String(getNested(v, "render.soft_container", "mkv")));
+    });
+    api.workspace().then((ws) => {
+      if (ws.video) setVideo(ws.video);
     });
     // 刷新页面后，若后端有运行中的渲染任务，自动恢复连接与进度显示
     api.jobs().then(({ jobs }) => {
@@ -91,6 +92,8 @@ export function RenderPage() {
       "render.burn_encoder": encoder,
       "render.burn_crf": crf,
       "render.soft_container": container,
+      "render.style_profile": styleProfile,
+      "render.display_mode": displayMode,
     });
   }
 
