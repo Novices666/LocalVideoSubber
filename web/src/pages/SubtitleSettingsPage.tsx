@@ -80,6 +80,10 @@ export function SubtitleSettingsPage() {
     }
   }
 
+  function refreshFonts() {
+    api.fonts().then((r) => setSysFonts(r.fonts)).catch(() => {});
+  }
+
   function select(name: string) {
     setSelected(name);
     const found = styles.find((s) => s.name === name);
@@ -218,31 +222,43 @@ export function SubtitleSettingsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>字体</Label>
-                <Select value={draft.font_name} onValueChange={(v) => set("font_name", v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-72">
-                    <SelectGroup>
-                      <SelectLabel>推荐</SelectLabel>
-                      {RECOMMENDED_FONTS.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                    <SelectGroup>
-                      <SelectLabel>系统字体</SelectLabel>
-                      {sysFonts
-                        .filter((f) => !RECOMMENDED_FONTS.includes(f))
-                        .map((f) => (
+                <div className="flex gap-1.5">
+                  <Select value={draft.font_name} onValueChange={(v) => set("font_name", v)}>
+                    <SelectTrigger className="min-w-0 flex-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      <SelectGroup>
+                        <SelectLabel>推荐</SelectLabel>
+                        {RECOMMENDED_FONTS.map((f) => (
                           <SelectItem key={f} value={f}>
                             {f}
                           </SelectItem>
                         ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>系统字体</SelectLabel>
+                        {sysFonts
+                          .filter((f) => !RECOMMENDED_FONTS.includes(f))
+                          .map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {f}
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={refreshFonts}
+                    title="刷新系统字体"
+                    aria-label="刷新系统字体"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>双语顺序</Label>

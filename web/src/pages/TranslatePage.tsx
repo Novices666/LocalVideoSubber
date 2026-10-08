@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play, Square, PlugZap, Save, FileUp } from "lucide-react";
+import { Play, Square, PlugZap, Save, FileUp, Eye, EyeOff } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -58,6 +58,7 @@ export function TranslatePage() {
 
   const [baseUrl, setBaseUrl] = useState("http://127.0.0.1:8080/v1");
   const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [model, setModel] = useState("");
   const [llmModelOptions, setLlmModelOptions] = useState<string[]>([]);
   const [refreshingModels, setRefreshingModels] = useState(false);
@@ -243,12 +244,24 @@ export function TranslatePage() {
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-1.5">
                 <Label>API Key</Label>
-                <Input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="本地服务可留空"
-                />
+                <div className="relative">
+                  <Input
+                    type={showKey ? "text" : "password"}
+                    value={apiKey}
+                    onChange={(e) => setApiKey(e.target.value)}
+                    placeholder="本地服务可留空"
+                    className="pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowKey((s) => !s)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label={showKey ? "隐藏 API Key" : "显示 API Key"}
+                    title={showKey ? "隐藏" : "显示"}
+                  >
+                    {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label>模型名</Label>

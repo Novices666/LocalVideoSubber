@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Save, RotateCcw } from "lucide-react";
+import { Save, RotateCcw, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,7 @@ export function SettingsPage() {
   const [asrCompute, setAsrCompute] = useState("float16");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [showKey, setShowKey] = useState(false);
   const [llmModel, setLlmModel] = useState("");
   const [llmModelOptions, setLlmModelOptions] = useState<string[]>([]);
   const [refreshingLlm, setRefreshingLlm] = useState(false);
@@ -122,6 +123,10 @@ export function SettingsPage() {
     } finally {
       setRefreshingLlm(false);
     }
+  }
+
+  function refreshFonts() {
+    api.fonts().then((r) => setFontOptions(r.fonts)).catch(() => {});
   }
 
   async function save() {
@@ -269,7 +274,23 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>API Key</Label>
-                  <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} />
+                  <div className="relative">
+                    <Input
+                      type={showKey ? "text" : "password"}
+                      value={apiKey}
+                      onChange={(e) => setApiKey(e.target.value)}
+                      className="pr-9"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowKey((s) => !s)}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      aria-label={showKey ? "隐藏 API Key" : "显示 API Key"}
+                      title={showKey ? "隐藏" : "显示"}
+                    >
+                      {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="timeout">请求超时（秒）</Label>
@@ -366,31 +387,43 @@ export function SettingsPage() {
                 </div>
                 <div className="space-y-1.5">
                   <Label>默认字体</Label>
-                  <Select value={fontName} onValueChange={setFontName}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="选择字体" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-72">
-                      <SelectGroup>
-                        <SelectLabel>推荐</SelectLabel>
-                        {RECOMMENDED_FONTS.map((f) => (
-                          <SelectItem key={f} value={f}>
-                            {f}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      <SelectGroup>
-                        <SelectLabel>系统字体</SelectLabel>
-                        {fontOptions
-                          .filter((f) => !RECOMMENDED_FONTS.includes(f))
-                          .map((f) => (
+                  <div className="flex gap-1.5">
+                    <Select value={fontName} onValueChange={setFontName}>
+                      <SelectTrigger className="min-w-0 flex-1">
+                        <SelectValue placeholder="选择字体" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-72">
+                        <SelectGroup>
+                          <SelectLabel>推荐</SelectLabel>
+                          {RECOMMENDED_FONTS.map((f) => (
                             <SelectItem key={f} value={f}>
                               {f}
                             </SelectItem>
                           ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>系统字体</SelectLabel>
+                          {fontOptions
+                            .filter((f) => !RECOMMENDED_FONTS.includes(f))
+                            .map((f) => (
+                              <SelectItem key={f} value={f}>
+                                {f}
+                              </SelectItem>
+                            ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      onClick={refreshFonts}
+                      title="刷新系统字体"
+                      aria-label="刷新系统字体"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
