@@ -22,6 +22,21 @@ from .subtitle.io import load_subtitle
 from .subtitle.models import Cue, stats
 
 
+def _split_bilingual(cues: list[Cue]) -> None:
+    """双语字幕（译文\n原文）自动拆分为 translation + text。
+
+    渲染导出的双语字幕默认译文在上（target_top），导入后 text 字段会
+    包含"译文\n原文"两行。这里拆开，避免原文列混入译文。
+    """
+    for c in cues:
+        if c.translation or "\n" not in c.text:
+            continue
+        lines = [l.strip() for l in c.text.split("\n") if l.strip()]
+        if len(lines) >= 2:
+            c.translation = lines[0]
+            c.text = "\n".join(lines[1:])
+
+
 @dataclass
 class Workspace:
     """线程安全的工作区状态。"""
@@ -78,6 +93,8 @@ class Workspace:
     def load_cues_from_file(self, path: str, as_translation: bool = False) -> list[Cue]:
         """手动从字幕文件加载，覆盖当前字幕。"""
         cues = load_subtitle(path, as_translation=as_translation)
+        if not as_translation:
+            _split_bilingual(cues)
         with self._lock:
             self.cues = cues
             self.updated_at = time.time()

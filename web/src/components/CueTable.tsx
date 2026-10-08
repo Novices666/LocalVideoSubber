@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,8 @@ export interface CueEditable {
 
 /** 表头单元格公共类：sticky 固定，实心背景避免滚动穿透 */
 const TH = "sticky top-0 z-10 bg-muted h-9 px-2 text-left align-middle font-medium text-muted-foreground text-xs";
+/** 估算行高（td p-2 + Input h-7 + border） */
+const ROW_H = 44;
 
 export function CueTable({
   cues,
@@ -29,8 +32,19 @@ export function CueTable({
   const [saving, setSaving] = useState(false);
   const [savedMsg, setSavedMsg] = useState("");
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+
   const rows = draft ?? cues;
   const dirty = draft !== null;
+
+  // 虚拟滚动：只渲染可见行，几千条字幕也不卡
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => ROW_H,
+    overscan: 8,
+  });
+  const virtualRows = virtualizer.getVirtualItems();
 
   function update(index: number, field: keyof Cue, value: string | number) {
     setDraft((prev) => {
@@ -49,7 +63,6 @@ export function CueTable({
     if (!onSave || !draft) return;
     setSaving(true);
     try {
-      // 数值字段归一
       const normalized = draft.map((c) => ({
         ...c,
         start: Number(c.start),
@@ -78,8 +91,10 @@ export function CueTable({
 
   return (
     <div className={cn("flex h-full flex-col", className)}>
-      <div className="scroll-area min-h-0 flex-1 overflow-auto rounded-md border border-border">
-        {/* 用原生 table：sticky 直接作用于 th，且只有一个滚动容器 */}
+      <div
+        ref={scrollRef}
+        className="scroll-area min-h-0 flex-1 overflow-auto rounded-md border border-border"
+      >
         <table className="w-full caption-bottom text-sm">
           <thead>
             <tr className="border-b border-border">
@@ -90,64 +105,77 @@ export function CueTable({
               <th className={cn(TH, "w-[38%]")}>译文</th>
             </tr>
           </thead>
-          <tbody>
-            {rows.map((cue, i) => (
-              <tr
-                key={i}
-                className="border-b border-border transition-colors hover:bg-muted/50"
-              >
-                <td className="p-2 align-middle tabular-nums text-right text-muted-foreground">
-                  {cue.index}
-                </td>
-                <td className="p-2 align-middle">
-                  {editable.start ? (
-                    <Input
-                      value={cue.start}
-                      onChange={(e) => update(i, "start", e.target.value)}
-                      className="tabular-nums h-7 px-2 text-xs"
-                    />
-                  ) : (
-                    <span className="tabular-nums">{cue.start.toFixed(2)}</span>
-                  )}
-                </td>
-                <td className="p-2 align-middle">
-                  {editable.end ? (
-                    <Input
-                      value={cue.end}
-                      onChange={(e) => update(i, "end", e.target.value)}
-                      className="tabular-nums h-7 px-2 text-xs"
-                    />
-                  ) : (
-                    <span className="tabular-nums">{cue.end.toFixed(2)}</span>
-                  )}
-                </td>
-                <td className="p-2 align-middle">
-                  {editable.text ? (
-                    <Input
-                      value={cue.text}
-                      onChange={(e) => update(i, "text", e.target.value)}
-                      className="h-7 px-2 text-xs"
-                    />
-                  ) : (
-                    <span className="break-anywhere">{cue.text}</span>
-                  )}
-                </td>
-                <td className="p-2 align-middle">
-                  {editable.translation ? (
-                    <Input
-                      value={cue.translation}
-                      onChange={(e) => update(i, "translation", e.target.value)}
-                      placeholder="（未翻译）"
-                      className="h-7 px-2 text-xs"
-                    />
-                  ) : (
-                    <span className="break-anywhere text-muted-foreground">
-                      {cue.translation || "—"}
-                    </span>
-                  )}
-                </td>
-              </tr>
-            ))}
+          <tbody
+            style={{ height: `${virtualizer.getTotalSize()}px`, position: "relative" }}
+          >
+            {virtualRows.map((vRow) => {
+              const cue = rows[vRow.index];
+              const i = vRow.index;
+              return (
+                <tr
+                  key={vRow.key}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${vRow.start}px)`,
+                  }}
+                  className="border-b border-border transition-colors hover:bg-muted/50"
+                >
+                  <td className="w-12 p-2 align-middle tabular-nums text-right text-muted-foreground">
+                    {cue.index}
+                  </td>
+                  <td className="w-24 p-2 align-middle">
+                    {editable.start ? (
+                      <Input
+                        value={cue.start}
+                        onChange={(e) => update(i, "start", e.target.value)}
+                        className="tabular-nums h-7 px-2 text-xs"
+                      />
+                    ) : (
+                      <span className="tabular-nums">{cue.start.toFixed(2)}</span>
+                    )}
+                  </td>
+                  <td className="w-24 p-2 align-middle">
+                    {editable.end ? (
+                      <Input
+                        value={cue.end}
+                        onChange={(e) => update(i, "end", e.target.value)}
+                        className="tabular-nums h-7 px-2 text-xs"
+                      />
+                    ) : (
+                      <span className="tabular-nums">{cue.end.toFixed(2)}</span>
+                    )}
+                  </td>
+                  <td className="w-[38%] p-2 align-middle">
+                    {editable.text ? (
+                      <Input
+                        value={cue.text}
+                        onChange={(e) => update(i, "text", e.target.value)}
+                        className="h-7 px-2 text-xs"
+                      />
+                    ) : (
+                      <span className="break-anywhere">{cue.text}</span>
+                    )}
+                  </td>
+                  <td className="w-[38%] p-2 align-middle">
+                    {editable.translation ? (
+                      <Input
+                        value={cue.translation}
+                        onChange={(e) => update(i, "translation", e.target.value)}
+                        placeholder="（未翻译）"
+                        className="h-7 px-2 text-xs"
+                      />
+                    ) : (
+                      <span className="break-anywhere text-muted-foreground">
+                        {cue.translation || "—"}
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
