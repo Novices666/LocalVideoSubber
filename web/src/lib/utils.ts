@@ -5,6 +5,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+// 推荐字体：设置页与字幕设置页共用的字体下拉「推荐」分组
+export const RECOMMENDED_FONTS = [
+  "Microsoft YaHei",
+  "SimHei",
+  "SimSun",
+  "DengXian",
+  "Arial",
+  "Noto Sans CJK SC",
+];
+
 // ASS 颜色是 &HAABBGGRR（BGR 顺序），HTML color input 是 #RRGGBB。
 export function assToHex(ass: string): string {
   const m = ass.match(/&H([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})([0-9A-Fa-f]{2})/);

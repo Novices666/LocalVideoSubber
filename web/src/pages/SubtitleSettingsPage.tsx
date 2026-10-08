@@ -16,9 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { api, type StyleProfile } from "@/lib/api";
-import { assToHex, hexToAss, cn } from "@/lib/utils";
-
-const FONTS = ["Microsoft YaHei", "SimHei", "SimSun", "DengXian", "Arial", "Noto Sans CJK SC"];
+import { assToHex, hexToAss, cn, RECOMMENDED_FONTS } from "@/lib/utils";
 
 const EMPTY: StyleProfile = {
   name: "",
@@ -227,7 +225,7 @@ export function SubtitleSettingsPage() {
                   <SelectContent className="max-h-72">
                     <SelectGroup>
                       <SelectLabel>推荐</SelectLabel>
-                      {FONTS.map((f) => (
+                      {RECOMMENDED_FONTS.map((f) => (
                         <SelectItem key={f} value={f}>
                           {f}
                         </SelectItem>
@@ -236,7 +234,7 @@ export function SubtitleSettingsPage() {
                     <SelectGroup>
                       <SelectLabel>系统字体</SelectLabel>
                       {sysFonts
-                        .filter((f) => !FONTS.includes(f))
+                        .filter((f) => !RECOMMENDED_FONTS.includes(f))
                         .map((f) => (
                           <SelectItem key={f} value={f}>
                             {f}

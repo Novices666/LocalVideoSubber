@@ -10,11 +10,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { api } from "@/lib/api";
+import { RECOMMENDED_FONTS } from "@/lib/utils";
 import { ModelPicker, type ModelOption } from "@/components/ModelPicker";
 
 type ConfigValues = Record<string, unknown>;
@@ -367,12 +370,25 @@ export function SettingsPage() {
                     <SelectTrigger>
                       <SelectValue placeholder="选择字体" />
                     </SelectTrigger>
-                    <SelectContent className="max-h-64">
-                      {fontOptions.map((f) => (
-                        <SelectItem key={f} value={f}>
-                          {f}
-                        </SelectItem>
-                      ))}
+                    <SelectContent className="max-h-72">
+                      <SelectGroup>
+                        <SelectLabel>推荐</SelectLabel>
+                        {RECOMMENDED_FONTS.map((f) => (
+                          <SelectItem key={f} value={f}>
+                            {f}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                      <SelectGroup>
+                        <SelectLabel>系统字体</SelectLabel>
+                        {fontOptions
+                          .filter((f) => !RECOMMENDED_FONTS.includes(f))
+                          .map((f) => (
+                            <SelectItem key={f} value={f}>
+                              {f}
+                            </SelectItem>
+                          ))}
+                      </SelectGroup>
                     </SelectContent>
                   </Select>
                 </div>
