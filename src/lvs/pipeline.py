@@ -16,6 +16,11 @@ from .asr.base import (
     TranscriptionCancelled,
     create_engine,
 )
+from .asr.diarization import (
+    run_diarization,
+    speaker_boundaries,
+    split_segments_by_speakers,
+)
 from .config import Config, merge_overrides, resolve_model_path
 from .jobs import Job, JobContext, TaskCancelled
 from .media import (
@@ -237,6 +242,21 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
         segments = [s for s in all_segments if s.text.strip()]
         if not segments:
             raise MediaError("没有识别到任何语音内容（可能是纯音乐或静音）")
+
+        # 4.1 说话人分离（可选）：按说话人切换点切分分段，实现自动换行
+        if cfg.get("asr.speaker_diarization", False):
+            ctx.log("说话人分离：开始分析…")
+            diar = run_diarization(str(wav))
+            if diar.ok:
+                bounds = speaker_boundaries(diar.turns)
+                before = len(segments)
+                segments = split_segments_by_speakers(segments, bounds)
+                ctx.log(
+                    f"说话人分离：{diar.num_speakers} 人，"
+                    f"{len(bounds)} 个切换点，{before} -> {len(segments)} 段"
+                )
+            else:
+                ctx.log("说话人分离：未检测到有效说话人，跳过", "warn")
 
         sopts = SegmentOptions.from_config(cfg)
         for k, v in (job.payload.get("seg_opts") or {}).items():

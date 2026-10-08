@@ -51,6 +51,7 @@ export function TranscribePage() {
   const [compute, setCompute] = useState("float16");
   const [beam, setBeam] = useState(5);
   const [vad, setVad] = useState(true);
+  const [diarize, setDiarize] = useState(false);
   const [prompt, setPrompt] = useState("");
   const [maxCjk, setMaxCjk] = useState(18);
   const [maxLatin, setMaxLatin] = useState(42);
@@ -79,6 +80,7 @@ export function TranscribePage() {
       setCompute(String(getNested(v, "asr.compute_type", "float16")));
       setBeam(Number(getNested(v, "asr.beam_size", 5)));
       setVad(Boolean(getNested(v, "asr.vad_filter", true)));
+      setDiarize(Boolean(getNested(v, "asr.speaker_diarization", false)));
       setPrompt(String(getNested(v, "asr.initial_prompt", "") ?? ""));
       setMaxCjk(Number(getNested(v, "segment.max_chars_cjk", 18)));
       setMaxLatin(Number(getNested(v, "segment.max_chars_latin", 42)));
@@ -123,6 +125,7 @@ export function TranscribePage() {
         device,
         compute_type: compute,
         vad_filter: vad,
+        speaker_diarization: diarize,
         initial_prompt: prompt || undefined,
         seg_opts: {
           enabled: true,
@@ -145,6 +148,7 @@ export function TranscribePage() {
       "asr.compute_type": compute,
       "asr.beam_size": beam,
       "asr.vad_filter": vad,
+      "asr.speaker_diarization": diarize,
       "asr.initial_prompt": prompt,
       "segment.max_chars_cjk": maxCjk,
       "segment.max_chars_latin": maxLatin,
@@ -298,6 +302,10 @@ export function TranscribePage() {
             <div className="flex items-center justify-between">
               <Label htmlFor="vad">VAD 静音过滤</Label>
               <Switch id="vad" checked={vad} onCheckedChange={setVad} />
+            </div>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="diarize">说话人分离（不同人自动换行，CPU 慢约 3 分钟）</Label>
+              <Switch id="diarize" checked={diarize} onCheckedChange={setDiarize} />
             </div>
             <div className="space-y-1.5">
               <Label>初始提示词（提升专有名词识别率，可选）</Label>

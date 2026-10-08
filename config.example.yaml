@@ -57,6 +57,8 @@ asr:
 
   # 是否输出词级时间戳（智能断句需要）
   word_timestamps: true
+  # 说话人分离：不同说话人自动换行（CPU 跑，约 +3 分钟/24 分钟视频）
+  speaker_diarization: false
 
 # ---------- 翻译（本地 LLM）----------
 translate:
