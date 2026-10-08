@@ -337,10 +337,6 @@ class FasterWhisperEngine(AsrEngine):
             import gc
 
             gc.collect()
-            import torch
-
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
         except Exception:  # noqa: BLE001
             pass
 
