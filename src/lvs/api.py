@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import logging
+import shutil
 import time
 from pathlib import Path
 from typing import Any
@@ -58,6 +59,26 @@ def q():
 
 def _cfg():
     return load_config()
+
+
+def _safe_workspace_path(path: str) -> Path:
+    """路径白名单：解析后必须在 workspace 根内。"""
+    p = Path(path).resolve()
+    root = _cfg().output_dir.resolve()
+    if p != root and root not in p.parents:
+        raise HTTPException(status_code=403, detail="路径不在工作目录内")
+    return p
+
+
+def _dir_size(p: Path) -> int:
+    total = 0
+    for f in p.rglob("*"):
+        if f.is_file():
+            try:
+                total += f.stat().st_size
+            except OSError:
+                pass
+    return total
 
 
 # --------------------------------------------------------------------------
@@ -213,17 +234,21 @@ def create_app() -> FastAPI:
 
     @app.post("/api/upload")
     async def upload(file: UploadFile = File(...)) -> dict[str, Any]:
-        """拖拽/点击上传文件，保存到 output/uploads/。返回落盘路径。"""
+        """拖拽/点击上传文件，按文件名 stem 存到 workspace/<stem>/upload/。
+
+        重复文件名加 _1/_2 区分（不覆盖）。
+        """
         if not file.filename:
             raise HTTPException(status_code=400, detail="缺少文件名")
-        upload_dir = _cfg().output_dir / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
         safe_name = Path(file.filename).name
+        stem = Path(safe_name).stem
+        upload_dir = _cfg().output_dir / stem / "upload"
+        upload_dir.mkdir(parents=True, exist_ok=True)
         dest = upload_dir / safe_name
-        stem, suffix = dest.stem, dest.suffix
+        base, suffix = dest.stem, dest.suffix
         i = 1
         while dest.exists():
-            dest = upload_dir / f"{stem}_{i}{suffix}"
+            dest = upload_dir / f"{base}_{i}{suffix}"
             i += 1
         size = 0
         with open(dest, "wb") as f:
@@ -234,7 +259,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/media/file")
     def media_file(path: str = Query(...)):
-        """产物文件访问（支持 Range，用于视频预览）。仅限 output/ 与 models/ 目录。"""
+        """产物文件访问（支持 Range，用于视频预览）。仅限 workspace/ 与 models/ 目录。"""
         p = Path(path).resolve()
         allowed_roots = [_cfg().output_dir.resolve(), _cfg().model_root.resolve(), PROJECT_ROOT.resolve()]
         if not any(p == root or root in p.parents for root in allowed_roots):
@@ -242,6 +267,65 @@ def create_app() -> FastAPI:
         if not p.is_file():
             raise HTTPException(status_code=404, detail="文件不存在")
         return FileResponse(p)
+
+    # ==============================================================
+    # 文件管理
+    # ==============================================================
+    @app.get("/api/files/tree")
+    def files_tree(folder: str = Query(...)) -> dict[str, Any]:
+        """列出目录子项（懒加载）：目录在前、文件在后，各按名称排序。"""
+        p = _safe_workspace_path(folder)
+        if not p.is_dir():
+            raise HTTPException(status_code=404, detail="目录不存在")
+        entries: list[dict[str, Any]] = []
+        for child in sorted(p.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            e: dict[str, Any] = {
+                "name": child.name,
+                "path": str(child),
+                "type": "dir" if child.is_dir() else "file",
+            }
+            if child.is_dir():
+                e["has_children"] = any(child.iterdir())
+            else:
+                try:
+                    e["size"] = child.stat().st_size
+                except OSError:
+                    e["size"] = 0
+            entries.append(e)
+        return {"folder": str(p), "entries": entries}
+
+    @app.delete("/api/files")
+    def files_delete(path: str = Query(...)) -> dict[str, Any]:
+        """删除文件或目录（仅限 workspace 内）。"""
+        p = _safe_workspace_path(path)
+        if not p.exists():
+            raise HTTPException(status_code=404, detail="路径不存在")
+        if p.is_dir():
+            shutil.rmtree(p)
+        else:
+            p.unlink()
+        return {"ok": True}
+
+    @app.post("/api/files/cleanup")
+    def files_cleanup() -> dict[str, Any]:
+        """一键清理：删除各项目中间产物 J 目录，保留 upload 与 output。"""
+        root = _cfg().output_dir
+        removed = 0
+        freed = 0
+        if root.is_dir():
+            for project in root.iterdir():
+                if not project.is_dir():
+                    continue
+                for stage in ("transcribe", "translate", "burn"):
+                    stage_dir = project / stage
+                    if not stage_dir.is_dir():
+                        continue
+                    for jdir in list(stage_dir.iterdir()):
+                        if jdir.is_dir():
+                            freed += _dir_size(jdir)
+                            shutil.rmtree(jdir)
+                            removed += 1
+        return {"ok": True, "removed": removed, "freed": freed}
 
     # ==============================================================
     # LLM 连接测试
@@ -337,7 +421,6 @@ def create_app() -> FastAPI:
             "cues": cues,
             "overrides": overrides,
             "stem": ws.video_stem or "subtitle",
-            "work_dir": ws.work_dir,
         }
         return _submit("translate", f"翻译 {len(cues)} 条 → {req.target_lang}", payload)
 
@@ -371,7 +454,6 @@ def create_app() -> FastAPI:
             "crf": req.crf,
             "container": req.container,
             "stem": stem,
-            "out_dir": str(_cfg().output_dir),
             "overrides": overrides,
             "style": style,
             "bilingual": bilingual,

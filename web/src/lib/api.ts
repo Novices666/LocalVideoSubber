@@ -44,6 +44,14 @@ export interface Cue {
   style?: string;
 }
 
+export interface FileEntry {
+  name: string;
+  path: string;
+  type: "dir" | "file";
+  size?: number;
+  has_children?: boolean;
+}
+
 export interface WorkspaceSnapshot {
   video: string;
   video_stem: string;
@@ -214,6 +222,19 @@ export const api = {
     req<{ job_id: string }>("/api/jobs/render", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+
+  filesTree: (folder: string) =>
+    req<{ folder: string; entries: FileEntry[] }>(
+      `/api/files/tree?folder=${encodeURIComponent(folder)}`,
+    ),
+  filesDelete: (path: string) =>
+    req<{ ok: boolean }>(`/api/files?path=${encodeURIComponent(path)}`, {
+      method: "DELETE",
+    }),
+  filesCleanup: () =>
+    req<{ ok: boolean; removed: number; freed: number }>("/api/files/cleanup", {
+      method: "POST",
     }),
 
   config: () =>

@@ -100,7 +100,7 @@ class Config:
 
     @property
     def output_dir(self) -> Path:
-        raw = self.get("jobs.output_dir", "./output")
+        raw = self.get("jobs.output_dir", "./workspace")
         p = Path(raw).expanduser()
         return p if p.is_absolute() else (PROJECT_ROOT / p).resolve()
 

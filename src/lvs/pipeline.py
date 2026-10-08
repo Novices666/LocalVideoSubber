@@ -46,10 +46,32 @@ log = logging.getLogger(__name__)
 # --------------------------------------------------------------------------
 # 辅助
 # --------------------------------------------------------------------------
-def _work_dir(cfg: Config, stem: str, job: Job) -> Path:
-    d = cfg.output_dir / stem / job.id
+def _work_dir(cfg: Config, stem: str, job: Job, stage: str = "transcribe") -> Path:
+    """工作目录：workspace/<stem>/<stage>/<job.id>/。阶段独立编号。"""
+    d = cfg.output_dir / stem / stage / job.id
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _project_dir(cfg: Config, stem: str) -> Path:
+    """项目根：workspace/<stem>/。各阶段子目录都在其下。"""
+    d = cfg.output_dir / stem
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _output_dir(cfg: Config, stem: str) -> Path:
+    """成品目录：workspace/<stem>/output/。只放最新成果。"""
+    d = cfg.output_dir / stem / "output"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _publish(src: Path, dst_dir: Path) -> Path:
+    """把最新成品复制到 output/ 目录（覆盖更新）。"""
+    dst = dst_dir / src.name
+    shutil.copy2(src, dst)
+    return dst
 
 
 def _to_cancelled(exc: Exception) -> None:
@@ -124,10 +146,10 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
     cfg = merge_overrides(cfg, overrides) if overrides else cfg
 
     stem = safe_stem(video.name)
-    work = _work_dir(cfg, stem, job)
+    work = _work_dir(cfg, stem, job, "transcribe")
     keep = bool(cfg.get("jobs.keep_intermediate", True))
 
-    result: dict[str, Any] = {"work_dir": str(work), "source": str(video)}
+    result: dict[str, Any] = {"work_dir": str(_project_dir(cfg, stem)), "source": str(video)}
     preserve_files: list[Path] = []
 
     engine = None
@@ -256,8 +278,9 @@ def run_transcribe(job: Job, ctx: JobContext) -> dict[str, Any]:
         out_srt = work / f"{stem}.srt"
         preserve_files.append(out_srt)
         save_subtitle(cues, out_srt, mode="source")
+        published = _publish(out_srt, _output_dir(cfg, stem))
         ctx.log(f"原始分段 -> {raw_srt.name}")
-        ctx.log(f"断句结果 -> {out_srt.name}")
+        ctx.log(f"断句结果 -> {out_srt.name} -> 成品 {published.name}")
 
         result.update({
             "cues": [c.to_dict() for c in cues],
@@ -317,7 +340,7 @@ def run_translate(job: Job, ctx: JobContext) -> dict[str, Any]:
     overrides = job.payload.get("overrides") or {}
     effective_cfg = merge_overrides(cfg, overrides) if overrides else cfg
     stem = job.payload.get("stem", "subtitle")
-    work = Path(job.payload.get("work_dir") or _work_dir(effective_cfg, stem, job))
+    work = _work_dir(effective_cfg, stem, job, "translate")
     keep = bool(effective_cfg.get("jobs.keep_intermediate", True))
     result: dict[str, Any] | None = None
     try:
@@ -344,7 +367,7 @@ def _run_translate_impl(job: Job, ctx: JobContext) -> dict[str, Any]:
     overrides = job.payload.get("overrides") or {}
     cfg = merge_overrides(cfg, overrides) if overrides else cfg
     stem = job.payload.get("stem", "subtitle")
-    work = Path(job.payload.get("work_dir") or _work_dir(cfg, stem, job))
+    work = _work_dir(cfg, stem, job, "translate")
     work.mkdir(parents=True, exist_ok=True)
     keep = bool(cfg.get("jobs.keep_intermediate", True))
 
@@ -407,7 +430,9 @@ def _run_translate_impl(job: Job, ctx: JobContext) -> dict[str, Any]:
     save_subtitle(cues, out, mode="both")
     out_t = work / f"{stem}.zh.srt"
     save_subtitle(cues, out_t, mode="target")
-    ctx.log(f"双语 -> {out.name}")
+    _publish(out, _output_dir(cfg, stem))
+    _publish(out_t, _output_dir(cfg, stem))
+    ctx.log(f"双语 -> {out.name} -> 成品")
 
     ctx.progress(1.0, f"翻译完成 · {res.translated} 条")
     return {
@@ -418,7 +443,7 @@ def _run_translate_impl(job: Job, ctx: JobContext) -> dict[str, Any]:
         "retries": res.retries,
         "bilingual_srt": str(out),
         "target_srt": str(out_t),
-        "work_dir": str(work),
+        "work_dir": str(_project_dir(cfg, stem)),
         "stats": stats(cues),
     }
 
@@ -443,7 +468,8 @@ def run_render(job: Job, ctx: JobContext) -> dict[str, Any]:
     stem = job.payload.get("stem") or (
         safe_stem(Path(video).name) if video else "subtitle"
     )
-    out_dir = Path(job.payload.get("out_dir") or cfg.output_dir)
+    # 成品直接进 workspace/<stem>/output/，临时字幕由 render 内部用 tempfile 处理
+    out_dir = _output_dir(cfg, stem)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     ropts = RenderOptions.from_config(cfg)

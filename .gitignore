@@ -3,7 +3,7 @@ models/**
 !models/.gitkeep
 
 # 输出产物
-output/
+workspace/
 
 # 字幕样式规范文件（运行时生成，内置预设硬编码在 styles.py）
 styles/

@@ -6,6 +6,7 @@ import { TranslatePage } from "@/pages/TranslatePage";
 import { RenderPage } from "@/pages/RenderPage";
 import { SubtitleSettingsPage } from "@/pages/SubtitleSettingsPage";
 import { SettingsPage } from "@/pages/SettingsPage";
+import { FilesPage } from "@/pages/FilesPage";
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="/translate" element={<TranslatePage />} />
         <Route path="/render" element={<RenderPage />} />
         <Route path="/subtitle-settings" element={<SubtitleSettingsPage />} />
+        <Route path="/files" element={<FilesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

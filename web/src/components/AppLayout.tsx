@@ -6,6 +6,7 @@ import {
   Clapperboard,
   Type,
   Settings,
+  Folder,
   FileVideo2,
   Captions,
   PackageCheck,
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { to: "/translate", label: "翻译", icon: Languages },
   { to: "/render", label: "渲染", icon: Clapperboard },
   { to: "/subtitle-settings", label: "字幕设置", icon: Type },
+  { to: "/files", label: "文件", icon: Folder },
   { to: "/settings", label: "设置", icon: Settings },
 ];
 
